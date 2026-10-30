@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Contrast on ivory (#FAF7F2):
+ *   espresso 14.6:1 · cocoa 5.9:1 (secondary text) · gold-deep 4.7:1 (small accent text)
+ *   gold 3.1:1 and taupe are decorative / large-text only.
+ */
+@theme {
+  --color-ivory: #faf7f2;
+  --color-champagne: #efe6d8;
+  --color-linen: #f4eee4;
+  --color-hairline: #e4dcd0;
+  --color-taupe: #b8a99a;
+  --color-cocoa: #6b5d52;
+  --color-espresso: #2b211c;
+  --color-gold: #a8864e;
+  --color-gold-deep: #86683a;
+  --color-success: #3f6b4f;
+  --color-danger: #9b2c2c;
+
+  --font-display: var(--font-cormorant), "Times New Roman", serif;
+  --font-sans: var(--font-jost), system-ui, sans-serif;
+
+  --text-display: clamp(2.5rem, 1.6rem + 3.6vw, 5rem);
+  --text-display--line-height: 1.02;
+  --text-heading: clamp(1.75rem, 1.35rem + 1.6vw, 2.75rem);
+  --text-heading--line-height: 1.1;
+
+  --tracking-label: 0.18em;
+
+  --shadow-soft: 0 1px 2px rgb(43 33 28 / 0.04), 0 8px 24px -12px rgb(43 33 28 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(43 33 28 / 0.05), 0 24px 48px -20px rgb(43 33 28 / 0.22);
+
+  --ease-luxe: cubic-bezier(0.22, 1, 0.36, 1);
+
+  @keyframes spin3d {
+    from { transform: rotateX(-18deg) rotateY(0deg); }
+    to { transform: rotateX(-18deg) rotateY(360deg); }
+  }
+
+  --breakpoint-xs: 23.4375rem; /* 375px */
+  --breakpoint-3xl: 120rem; /* 1920px */
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-ivory);
+    color: var(--color-espresso);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background-color: var(--color-champagne);
+    color: var(--color-espresso);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold-deep);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility label {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+@utility container-page {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 90rem;
+  padding-inline: 1rem;
+  @media (width >= 40rem) { padding-inline: 1.5rem; }
+  @media (width >= 64rem) { padding-inline: 2.5rem; }
+}

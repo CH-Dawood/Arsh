@@ -1,0 +1,10 @@
+{
+  "name": "arsh-store",
+  "private": true,
+  "description": "Premium Pakistani women's fashion store: Next.js + Supabase",
+  "scripts": {
+    "dev": "npm run dev --prefix web",
+    "build": "npm run build --prefix web",
+    "typecheck": "npm run typecheck --prefix web"
+  }
+}
