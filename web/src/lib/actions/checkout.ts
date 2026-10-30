@@ -47,10 +47,10 @@ export async function quoteCart(itemsJson: string, coupon: string | null): Promi
 
   const user = await getCurrentUser();
   const { data, error } = await createAdminClient().rpc("quote_cart", {
-    p_items: items.data, p_coupon_code: coupon?.trim() || null, p_user_id: user?.id ?? null,
+    p_items: items.data, p_coupon_code: coupon?.trim() || undefined, p_user_id: user?.id,
   });
   if (error || !data) return { ok: false, message: "We couldn't calculate your total. Please try again." };
-  const quote = data as Quote;
+  const quote = data as unknown as Quote;
   if (quote.coupon?.error) return { ok: false, message: friendly(quote.coupon.error) };
   return { ok: true, quote };
 }
@@ -71,8 +71,8 @@ export async function placeOrder(_: CheckoutState, formData: FormData): Promise<
       p_items: items.data,
       p_customer: customer,
       p_payment_method: payment_method,
-      p_coupon_code: coupon ?? null,
-      p_user_id: user?.id ?? null,
+      p_coupon_code: coupon,
+      p_user_id: user?.id,
     })
     .single();
 

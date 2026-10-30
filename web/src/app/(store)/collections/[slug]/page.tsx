@@ -15,7 +15,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/collections/[slug]">): Promise<Metadata> {
   const collection = await getCollection((await params).slug);
   if (!collection) notFound();
-  return pageMetadata({ title: collection.title, description: collection.description, path: `/collections/${collection.slug}`, image: collection.image });
+  return pageMetadata({ title: collection.title, description: collection.description, path: `/collections/${collection.slug}`, image: collection.image ?? undefined });
 }
 
 export default function CollectionPage({ params, searchParams }: PageProps<"/collections/[slug]">) {

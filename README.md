@@ -34,7 +34,14 @@ npx supabase db push --include-seed
 npm run db:types
 ```
 
-3. Sign up on the site, then make yourself admin in the Supabase SQL editor:
+3. Optional: load the demo catalogue (29 products with free Unsplash photos, placeholder prices).
+   Remove it any time with `supabase/demo/remove-demo-catalog.sql`; real products and orders are untouched.
+
+```bash
+npx supabase db query --linked -f supabase/demo/demo-catalog.sql
+```
+
+4. Sign up on the site, then make yourself admin in the Supabase SQL editor:
 
 ```sql
 update public.profiles set role = 'admin'

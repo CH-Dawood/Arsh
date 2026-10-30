@@ -1,4 +1,5 @@
 import { CartDrawer } from "@/components/cart/cart-drawer";
+import { CartSync } from "@/components/cart/cart-sync";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { WhatsAppButton } from "@/components/layout/whatsapp-button";
@@ -26,6 +27,7 @@ export default async function StoreLayout({ children }: LayoutProps<"/">) {
       <Footer settings={settings} />
       <WhatsAppButton number={settings.whatsappNumber} message={settings.whatsappMessage} />
       <CartDrawer freeShippingThreshold={settings.freeShippingThreshold} />
+      <CartSync />
     </>
   );
 }

@@ -6,6 +6,7 @@ import { formatPKR } from "@/lib/format";
 import { useHydrated } from "@/lib/hooks";
 import { cartSubtotal, useCart } from "@/lib/store/cart";
 import { CartLines } from "./cart-lines";
+import { CartNotice } from "./cart-sync";
 import { ShippingProgress } from "./shipping-progress";
 
 export function CartView({ freeShippingThreshold, shippingFee }: { freeShippingThreshold: number; shippingFee: number }) {
@@ -28,8 +29,9 @@ export function CartView({ freeShippingThreshold, shippingFee }: { freeShippingT
 
   return (
     <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_24rem]">
-      <section aria-label="Items in your bag" className="border-t border-hairline">
-        <CartLines lines={lines} />
+      <section aria-label="Items in your bag" className="space-y-4">
+        <CartNotice />
+        <div className="border-t border-hairline"><CartLines lines={lines} /></div>
       </section>
       <aside className="h-fit space-y-5 bg-linen p-6 lg:sticky lg:top-32 sm:p-8">
         <h2 className="text-2xl">Order summary</h2>

@@ -267,7 +267,7 @@ AVIF/WebP via `next/image`, `next/font` with `display: swap`.
 
 | Phase | Deliverables | Exit check |
 |-------|--------------|-----------|
-| **1. Foundation** — *done except linking (waiting on credentials)* | Retire Express backend; Supabase project linked; migrations for full schema + RLS + functions + storage; generated types; Supabase clients; `proxy.ts`; design tokens, fonts, UI primitives; security headers; `.env.example` | Migrations apply cleanly; RLS tests pass; typecheck clean |
+| **1. Foundation** — *done; linked to Supabase project `txwrakdqdmpzdvomazaz`* | Retire Express backend; Supabase project linked; migrations for full schema + RLS + functions + storage; generated types; Supabase clients; `proxy.ts`; design tokens, fonts, UI primitives; security headers; `.env.example` | Migrations apply cleanly; RLS tests pass; typecheck clean |
 | **2. Storefront UI** | Header + search, mobile drawer, hero slider, category grid, product rails, shipping promo, footer, WhatsApp button, PDP, cart, checkout, content pages | Responsive at 320 → 1920 px; no horizontal scroll |
 | **3. Commerce backend** | Cart (guest + user, merge on login), coupons, `place_order`, order confirmation + tracking, wishlist, reviews, newsletter, auth flows | Order journey end-to-end against the real database |
 | **4. Admin dashboard** | Overview metrics, products/variants/stock/images, categories, brands, home sections, banners, coupons, orders (status, payment, tracking, refunds/returns), customers, settings, audit log | Every store setting changeable without code |

@@ -21,6 +21,9 @@ export interface CartLine {
 interface CartState {
   lines: CartLine[];
   isOpen: boolean;
+  /** Shown when the bag was adjusted to match live prices and stock. */
+  notice: string | null;
+  reconcile: (live: { variantId: string; price: number; compareAtPrice: number | null; stock: number }[]) => void;
   add: (line: Omit<CartLine, "quantity">, quantity?: number) => void;
   setQuantity: (variantId: string, quantity: number) => void;
   remove: (variantId: string) => void;
@@ -35,6 +38,25 @@ export const useCart = create<CartState>()(
     (set) => ({
       lines: [],
       isOpen: false,
+      notice: null,
+      reconcile: (live) =>
+        set((s) => {
+          const byId = new Map(live.map((v) => [v.variantId, v]));
+          let changed = false;
+          const lines = s.lines.flatMap((l) => {
+            const v = byId.get(l.variantId);
+            if (!v || v.stock === 0) {
+              changed = true;
+              return [];
+            }
+            const quantity = Math.min(l.quantity, v.stock, MAX_PER_LINE);
+            if (v.price !== l.price || v.compareAtPrice !== l.compareAtPrice || quantity !== l.quantity) changed = true;
+            return [{ ...l, price: v.price, compareAtPrice: v.compareAtPrice, maxQuantity: v.stock, quantity }];
+          });
+          return changed
+            ? { lines, notice: "Your bag was updated to reflect current prices and availability." }
+            : { lines };
+        }),
       add: (line, quantity = 1) =>
         set((s) => {
           const existing = s.lines.find((l) => l.variantId === line.variantId);

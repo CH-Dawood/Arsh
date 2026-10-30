@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Banknote, CreditCard, Landmark, LoaderCircle, Lock, Smartphone } from "lucide-react";
 import { useState, useTransition } from "react";
+import { CartNotice } from "@/components/cart/cart-sync";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, FormMessage } from "@/components/ui/field";
 import { placeOrder, quoteCart, type Quote } from "@/lib/actions/checkout";
@@ -107,6 +108,7 @@ export function CheckoutForm({ settings }: { settings: Settings }) {
 
       <aside className="h-fit space-y-6 bg-linen p-6 sm:p-8 lg:sticky lg:top-32">
         <h2 className="text-2xl">Your order</h2>
+        <CartNotice />
         <ul className="max-h-72 space-y-4 overflow-y-auto">
           {lines.map((l) => (
             <li key={l.variantId} className="flex gap-4 text-sm">

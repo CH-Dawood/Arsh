@@ -77,7 +77,7 @@ export interface Collection {
   description: string;
   kind: HomeSectionKind;
   categorySlug: string | null;
-  image: CatalogImage;
+  image: CatalogImage | null;
 }
 
 export interface Banner {

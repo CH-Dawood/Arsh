@@ -17,13 +17,15 @@ export function CategoryGrid({ collections }: { collections: Collection[] }) {
             <Reveal delay={i * 0.06}>
               <Link href={`/collections/${c.slug}`} className="group block">
                 <div className="relative aspect-[3/4] overflow-hidden bg-champagne">
-                  <Image
-                    src={c.image.url}
-                    alt=""
-                    fill
-                    sizes="(min-width: 1024px) 16vw, (min-width: 640px) 31vw, 44vw"
-                    className="object-cover object-top transition-transform duration-[1.4s] ease-luxe group-hover:scale-[1.06]"
-                  />
+                  {c.image && (
+                    <Image
+                      src={c.image.url}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1024px) 16vw, (min-width: 640px) 31vw, 44vw"
+                      className="object-cover object-top transition-transform duration-[1.4s] ease-luxe group-hover:scale-[1.06]"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-espresso/55 via-transparent to-transparent transition-opacity duration-700 group-hover:opacity-80" />
                   <div className="absolute inset-x-0 bottom-0 p-4 text-ivory">
                     <h3 className="font-display text-xl leading-tight sm:text-2xl">{c.title}</h3>

@@ -7,6 +7,7 @@ import { formatPKR } from "@/lib/format";
 import { useHydrated } from "@/lib/hooks";
 import { cartCount, cartSubtotal, useCart } from "@/lib/store/cart";
 import { CartLines } from "./cart-lines";
+import { CartNotice } from "./cart-sync";
 import { ShippingProgress } from "./shipping-progress";
 
 export function CartDrawer({ freeShippingThreshold }: { freeShippingThreshold: number }) {
@@ -30,7 +31,10 @@ export function CartDrawer({ freeShippingThreshold }: { freeShippingThreshold: n
         </div>
       ) : (
         <>
-          <div className="flex-1 overflow-y-auto px-6"><CartLines lines={lines} onNavigate={close} compact /></div>
+          <div className="flex-1 overflow-y-auto px-6">
+            <div className="pt-4"><CartNotice /></div>
+            <CartLines lines={lines} onNavigate={close} compact />
+          </div>
           <div className="space-y-4 border-t border-hairline bg-linen px-6 py-5">
             <div className="flex justify-between">
               <span className="label">Estimated subtotal</span>
