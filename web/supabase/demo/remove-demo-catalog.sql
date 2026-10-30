@@ -18,7 +18,7 @@ delete from public.products
     and not exists (select 1 from public.order_items oi where oi.product_id = products.id);
 
 delete from public.brands b
-  where b.slug in ('atelier-luxe', 'atelier-pret', 'atelier-lawn')
+  where b.slug in ('arsh-luxe', 'arsh-pret', 'arsh-lawn')
     and not exists (select 1 from public.products p where p.brand_id = b.id);
 
 delete from public.banners where image_path like 'https://images.unsplash.com/%';

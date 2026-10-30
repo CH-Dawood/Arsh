@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
  * Design tokens. Contrast on ivory (#FAF7F2):
@@ -17,6 +18,21 @@
   --color-gold-deep: #86683a;
   --color-success: #3f6b4f;
   --color-danger: #9b2c2c;
+
+  /* shadcn/ui token names mapped onto the Arsh palette, so components from
+     components/ui (and the shadcn CLI) inherit the brand instead of default greys. */
+  --color-background: var(--color-ivory);
+  --color-foreground: var(--color-espresso);
+  --color-muted: var(--color-linen);
+  --color-muted-foreground: var(--color-cocoa);
+  --color-card: var(--color-linen);
+  --color-card-foreground: var(--color-espresso);
+  --color-border: var(--color-hairline);
+  --color-ring: var(--color-gold-deep);
+  --color-primary: var(--color-espresso);
+  --color-primary-foreground: var(--color-ivory);
+  --color-accent: var(--color-champagne);
+  --color-accent-foreground: var(--color-espresso);
 
   --font-display: var(--font-cormorant), "Times New Roman", serif;
   --font-sans: var(--font-jost), system-ui, sans-serif;

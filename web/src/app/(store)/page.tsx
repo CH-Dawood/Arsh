@@ -2,6 +2,7 @@ import { CategoryGrid } from "@/components/home/category-grid";
 import { HeroSlider } from "@/components/home/hero-slider";
 import { ProductRail } from "@/components/home/product-rail";
 import { ShippingPromo } from "@/components/home/shipping-promo";
+import { SignatureRail } from "@/components/home/signature-rail";
 import { getBanners, getCollections, getProducts, getSettings } from "@/lib/catalog";
 import { JsonLd, absoluteUrl } from "@/lib/seo";
 
@@ -45,6 +46,7 @@ export default async function HomePage() {
         <ProductRail key={c.slug} title={c.title} eyebrow={eyebrows[c.slug]} href={`/collections/${c.slug}`} products={rails[i].items} />
       ))}
       <ShippingPromo threshold={settings.freeShippingThreshold} codEnabled={settings.codEnabled} />
+      <SignatureRail />
     </>
   );
 }
