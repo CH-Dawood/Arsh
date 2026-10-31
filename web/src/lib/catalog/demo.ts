@@ -25,6 +25,9 @@ export const demoSettings: StoreSettings = {
   shippingFee: 250,
   codEnabled: true,
   bankTransferEnabled: false,
+  logoUrl: null,
+  storeOpen: true,
+  closedMessage: null,
 };
 
 const SIZES: Record<string, Size> = {

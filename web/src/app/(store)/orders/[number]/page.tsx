@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { CircleCheck } from "lucide-react";
 import { ClearCart } from "@/components/orders/clear-cart";
-import { OrderStatus } from "@/components/orders/order-status";
+import { LiveOrderStatus } from "@/components/orders/live-order-status";
 import { ButtonLink } from "@/components/ui/button";
 import { lookupOrder } from "@/lib/actions/orders";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -46,7 +46,7 @@ async function Confirmation({ params }: Pick<PageProps<"/orders/[number]">, "par
         <h1 className="mt-4 text-heading">Thank you for your order</h1>
         <p className="mt-3 text-cocoa">We&apos;ve received your order and will confirm it shortly. Keep your order number to track delivery.</p>
       </div>
-      <OrderStatus order={order} />
+      <LiveOrderStatus initial={order} />
       <div className="mt-12 flex flex-wrap justify-center gap-3">
         <ButtonLink href="/shop" variant="outline">Continue shopping</ButtonLink>
         <ButtonLink href="/track-order" variant="ghost">Track an order</ButtonLink>

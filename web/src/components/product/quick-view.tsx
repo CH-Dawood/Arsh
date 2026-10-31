@@ -15,7 +15,7 @@ export function QuickView({ product, open, onClose }: { product: ProductSummary;
         <div className="flex snap-x snap-mandatory overflow-x-auto bg-champagne md:block md:overflow-visible">
           {product.images.map((img, i) => (
             <div key={img.url} className="relative aspect-[3/4] w-full shrink-0 snap-center md:[&:not(:first-child)]:hidden">
-              <Image src={img.url} alt={img.alt} fill sizes="(min-width: 768px) 30rem, 94vw" className="object-cover" priority={i === 0} />
+              <Image src={img.url} alt={img.alt} fill sizes="(min-width: 768px) 30rem, 94vw" className="object-cover" loading={i === 0 ? "eager" : "lazy"} />
             </div>
           ))}
         </div>

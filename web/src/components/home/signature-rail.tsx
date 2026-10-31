@@ -19,10 +19,10 @@ function railPhoto(url: string) {
   return `/_next/image?url=${encodeURIComponent(url)}&w=640&q=75`;
 }
 
-/** Pieces with a front and back photo turn best, so they lead; then couture and best sellers. */
+/** Pieces featured in the admin lead; then ones with a front and back photo (they turn best), couture and best sellers. */
 function pick(items: ProductSummary[]) {
   const score = (p: ProductSummary) =>
-    (p.images.length > 1 ? 4 : 0) + (p.badges.includes("luxury") ? 2 : 0) + (p.badges.includes("bestseller") ? 1 : 0);
+    (p.featured ? 8 : 0) + (p.images.length > 1 ? 4 : 0) + (p.badges.includes("luxury") ? 2 : 0) + (p.badges.includes("bestseller") ? 1 : 0);
   return items
     .filter((p) => p.inStock && p.images.length > 0)
     .map((p, i) => ({ p, i, s: score(p) }))

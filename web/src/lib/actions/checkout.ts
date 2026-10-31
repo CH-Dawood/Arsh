@@ -2,6 +2,8 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { processNotifications } from "@/lib/whatsapp";
 import { getCurrentUser } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
 import { NOT_LIVE, rateLimit } from "@/lib/security";
@@ -27,6 +29,7 @@ const messages: Record<string, string> = {
   COUPON_MIN_ORDER: "Your order doesn't reach the minimum amount for that discount code.",
   COUPON_EXHAUSTED: "That discount code has reached its usage limit.",
   COUPON_LIMIT_REACHED: "You've already used that discount code.",
+  STORE_CLOSED: "We're not taking orders at the moment. Please check back soon.",
 };
 const friendly = (raw: string) => messages[Object.keys(messages).find((k) => raw.includes(k)) ?? ""] ?? "We couldn't place your order. Please try again.";
 
@@ -82,6 +85,8 @@ export async function placeOrder(_: CheckoutState, formData: FormData): Promise<
   }
 
   const order = data as { order_number: string };
+  // Sends the "order placed" WhatsApp message (if the customer opted in) after the response.
+  after(() => processNotifications());
   // Lets the confirmation page show this order without putting personal data in the URL.
   (await cookies()).set("last_order", JSON.stringify({ n: order.order_number, p: customer.phone }), {
     httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/orders", maxAge: 60 * 60 * 24,

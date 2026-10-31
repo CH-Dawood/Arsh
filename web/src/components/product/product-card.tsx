@@ -40,7 +40,7 @@ export function ProductCard({ product, priority = false }: { product: ProductSum
               alt=""
               fill
               sizes={CARD_SIZES}
-              priority={priority}
+              loading={priority ? "eager" : "lazy"}
               className={cn(
                 "object-cover transition-[transform,opacity] duration-[1.2s] ease-luxe group-hover:scale-[1.04]",
                 secondary && "group-hover:opacity-0",

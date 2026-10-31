@@ -47,6 +47,8 @@ export interface ProductSummary {
   category: CategoryRef;
   inStock: boolean;
   createdAt: string;
+  /** Hand-picked in the admin; leads the homepage signature rail. */
+  featured?: boolean;
 }
 
 export interface Product extends ProductSummary {
@@ -105,6 +107,10 @@ export interface StoreSettings {
   shippingFee: number;
   codEnabled: boolean;
   bankTransferEnabled: boolean;
+  logoUrl: string | null;
+  /** When false, customers can browse but checkout is paused. */
+  storeOpen: boolean;
+  closedMessage: string | null;
 }
 
 export interface ContentPage {

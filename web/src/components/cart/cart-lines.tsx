@@ -24,7 +24,7 @@ export function CartLines({ lines, onNavigate, compact = false }: { lines: CartL
             className="flex gap-4 py-5"
           >
             <Link href={`/products/${l.slug}`} onClick={onNavigate} className="relative aspect-[3/4] w-20 shrink-0 overflow-hidden bg-champagne sm:w-24">
-              <Image src={l.image} alt={l.name} fill sizes="96px" className="object-cover" />
+              {l.image && <Image src={l.image} alt={l.name} fill sizes="96px" className="object-cover" />}
             </Link>
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex justify-between gap-3">

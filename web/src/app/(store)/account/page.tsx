@@ -39,9 +39,10 @@ async function Account() {
   const user = await requireUser("/account");
   const supabase = await createClient();
   // RLS limits both queries to this customer's own rows.
-  const [{ data: profile }, { data: orders }] = await Promise.all([
+  const [{ data: profile }, { data: orders }, { data: isAdmin }] = await Promise.all([
     supabase.from("profiles").select("full_name, phone").eq("id", user.id).single(),
-    supabase.from("orders").select("order_number, created_at, status, total").order("created_at", { ascending: false }).limit(50),
+    supabase.from("orders").select("order_number, created_at, status, total").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50),
+    supabase.rpc("is_admin"),
   ]);
 
   return (
@@ -51,6 +52,7 @@ async function Account() {
         <p className="text-sm text-cocoa">{user.email}</p>
         {profile?.phone && <p className="text-sm text-cocoa">{profile.phone}</p>}
         <div className="flex flex-col items-start gap-3 pt-6">
+          {isAdmin && <Link href="/admin" className="label text-gold-deep hover:text-espresso">Admin dashboard</Link>}
           <Link href="/wishlist" className="label hover:text-gold-deep">Wishlist</Link>
           <Link href="/track-order" className="label hover:text-gold-deep">Track an order</Link>
           <form action={logout}><Button type="submit" variant="ghost" className="text-danger">Sign out</Button></form>

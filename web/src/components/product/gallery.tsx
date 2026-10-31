@@ -21,6 +21,14 @@ export function Gallery({ images, name }: { images: CatalogImage[]; name: string
     strip.current?.children[i]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
   };
 
+  if (!images.length) {
+    return (
+      <div className="grid aspect-[3/4] place-items-center bg-champagne text-sm text-cocoa" role="img" aria-label={`${name}: photos coming soon`}>
+        Photos coming soon
+      </div>
+    );
+  }
+
   return (
     <div className="lg:grid lg:grid-cols-[5rem_1fr] lg:gap-4">
       {images.length > 1 && (
@@ -71,7 +79,8 @@ export function Gallery({ images, name }: { images: CatalogImage[]; name: string
                 src={img.url}
                 alt={img.alt}
                 fill
-                priority={i === 0}
+                loading={i === 0 ? "eager" : "lazy"}
+                fetchPriority={i === 0 ? "high" : "auto"}
                 sizes="(min-width: 1024px) 50vw, 100vw"
                 className="object-cover transition-transform duration-300 ease-out [transform-origin:var(--zx,50%)_var(--zy,50%)] lg:group-hover/zoom:scale-[2]"
               />

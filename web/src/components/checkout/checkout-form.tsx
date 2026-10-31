@@ -79,6 +79,13 @@ export function CheckoutForm({ settings }: { settings: Settings }) {
             <Field label="Complete address" name="address_line" autoComplete="street-address" placeholder="House, street, area, landmark" required error={e.address_line} className="sm:col-span-2" multiline />
             <Field label="Order notes" name="notes" placeholder="Delivery instructions, preferred time…" maxLength={500} error={e.notes} className="sm:col-span-2" multiline />
           </div>
+          <label className="flex cursor-pointer items-start gap-3 text-sm">
+            <input type="checkbox" name="whatsapp_opt_in" className="mt-0.5 size-4 accent-espresso" />
+            <span>
+              Send me order updates on WhatsApp
+              <span className="block text-xs text-cocoa">Confirmation, dispatch and delivery messages to the mobile number above. Optional.</span>
+            </span>
+          </label>
         </fieldset>
 
         <fieldset>
@@ -113,7 +120,7 @@ export function CheckoutForm({ settings }: { settings: Settings }) {
           {lines.map((l) => (
             <li key={l.variantId} className="flex gap-4 text-sm">
               <span className="relative aspect-[3/4] w-14 shrink-0 bg-champagne">
-                <Image src={l.image} alt="" fill sizes="56px" className="object-cover" />
+                {l.image && <Image src={l.image} alt="" fill sizes="56px" className="object-cover" />}
                 <span className="absolute -right-2 -top-2 grid size-5 place-items-center rounded-full bg-espresso text-[0.625rem] text-ivory">{l.quantity}</span>
               </span>
               <span className="min-w-0 flex-1">

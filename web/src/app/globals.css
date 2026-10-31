@@ -8,6 +8,8 @@
  */
 @theme {
   --color-ivory: #faf7f2;
+  --color-paper: #fffdfa;
+  --color-canvas: #f4f0e9;
   --color-champagne: #efe6d8;
   --color-linen: #f4eee4;
   --color-hairline: #e4dcd0;
@@ -18,6 +20,7 @@
   --color-gold-deep: #86683a;
   --color-success: #3f6b4f;
   --color-danger: #9b2c2c;
+  --color-warning: #b7791f;
 
   /* shadcn/ui token names mapped onto the Arsh palette, so components from
      components/ui (and the shadcn CLI) inherit the brand instead of default greys. */

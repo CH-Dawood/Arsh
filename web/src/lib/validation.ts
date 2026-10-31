@@ -20,6 +20,8 @@ export const checkoutSchema = z.object({
   notes: optionalText(500),
   payment_method: z.enum(["cod", "bank_transfer", "easypaisa", "jazzcash", "card"]),
   coupon: optionalText(30),
+  // Unticked checkboxes are absent from the form, so only an explicit "on" counts as consent.
+  whatsapp_opt_in: z.string().optional().transform((v) => v === "on"),
 });
 export type CheckoutInput = z.input<typeof checkoutSchema>;
 

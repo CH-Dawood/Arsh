@@ -64,7 +64,8 @@ export function HeroSlider({ banners }: { banners: Banner[] }) {
               src={b.image.url}
               alt={b.image.alt}
               fill
-              priority={i === 0}
+              loading={i === 0 ? "eager" : "lazy"}
+              fetchPriority={i === 0 ? "high" : "low"}
               sizes="(min-width: 1024px) 58vw, 100vw"
               className={cn(
                 "object-cover object-[50%_18%] transition-transform ease-out",

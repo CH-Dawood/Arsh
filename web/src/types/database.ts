@@ -619,6 +619,95 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_logs: {
+        Row: {
+          attempts: number
+          channel: string
+          created_at: string
+          error: string | null
+          event: Database["public"]["Enums"]["notification_event"]
+          id: string
+          language: string
+          last_attempt_at: string | null
+          order_id: string | null
+          phone: string
+          provider_message_id: string | null
+          response: Json | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["notification_status"]
+          template_name: string
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          attempts?: number
+          channel?: string
+          created_at?: string
+          error?: string | null
+          event: Database["public"]["Enums"]["notification_event"]
+          id?: string
+          language?: string
+          last_attempt_at?: string | null
+          order_id?: string | null
+          phone: string
+          provider_message_id?: string | null
+          response?: Json | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          template_name: string
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          created_at?: string
+          error?: string | null
+          event?: Database["public"]["Enums"]["notification_event"]
+          id?: string
+          language?: string
+          last_attempt_at?: string | null
+          order_id?: string | null
+          phone?: string
+          provider_message_id?: string | null
+          response?: Json | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          template_name?: string
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_logs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_settings: {
+        Row: {
+          enabled: boolean
+          events: Json
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          events?: Json
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          events?: Json
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
@@ -745,6 +834,7 @@ export type Database = {
           courier: string | null
           created_at: string
           customer_name: string
+          delivered_at: string | null
           discount_total: number
           email: string | null
           id: string
@@ -762,6 +852,7 @@ export type Database = {
           tracking_url: string | null
           updated_at: string
           user_id: string | null
+          whatsapp_opt_in: boolean
         }
         Insert: {
           address_line: string
@@ -773,6 +864,7 @@ export type Database = {
           courier?: string | null
           created_at?: string
           customer_name: string
+          delivered_at?: string | null
           discount_total?: number
           email?: string | null
           id?: string
@@ -790,6 +882,7 @@ export type Database = {
           tracking_url?: string | null
           updated_at?: string
           user_id?: string | null
+          whatsapp_opt_in?: boolean
         }
         Update: {
           address_line?: string
@@ -801,6 +894,7 @@ export type Database = {
           courier?: string | null
           created_at?: string
           customer_name?: string
+          delivered_at?: string | null
           discount_total?: number
           email?: string | null
           id?: string
@@ -818,6 +912,7 @@ export type Database = {
           tracking_url?: string | null
           updated_at?: string
           user_id?: string | null
+          whatsapp_opt_in?: boolean
         }
         Relationships: [
           {
@@ -1016,6 +1111,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_best_seller: boolean
+          is_featured: boolean
           is_luxury: boolean
           is_new_arrival: boolean
           name: string
@@ -1040,6 +1136,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_best_seller?: boolean
+          is_featured?: boolean
           is_luxury?: boolean
           is_new_arrival?: boolean
           name: string
@@ -1064,6 +1161,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_best_seller?: boolean
+          is_featured?: boolean
           is_luxury?: boolean
           is_new_arrival?: boolean
           name?: string
@@ -1250,16 +1348,20 @@ export type Database = {
           bank_iban: string | null
           bank_name: string | null
           bank_transfer_enabled: boolean
+          closed_message: string | null
           cod_enabled: boolean
           contact_email: string | null
           contact_phone: string | null
+          currency: string
           facebook_url: string | null
           free_shipping_threshold: number
           id: number
           instagram_url: string | null
           logo_path: string | null
+          low_stock_threshold: number
           shipping_fee: number
           store_name: string
+          store_open: boolean
           tagline: string | null
           tiktok_url: string | null
           updated_at: string
@@ -1273,16 +1375,20 @@ export type Database = {
           bank_iban?: string | null
           bank_name?: string | null
           bank_transfer_enabled?: boolean
+          closed_message?: string | null
           cod_enabled?: boolean
           contact_email?: string | null
           contact_phone?: string | null
+          currency?: string
           facebook_url?: string | null
           free_shipping_threshold?: number
           id?: number
           instagram_url?: string | null
           logo_path?: string | null
+          low_stock_threshold?: number
           shipping_fee?: number
           store_name?: string
+          store_open?: boolean
           tagline?: string | null
           tiktok_url?: string | null
           updated_at?: string
@@ -1296,16 +1402,20 @@ export type Database = {
           bank_iban?: string | null
           bank_name?: string | null
           bank_transfer_enabled?: boolean
+          closed_message?: string | null
           cod_enabled?: boolean
           contact_email?: string | null
           contact_phone?: string | null
+          currency?: string
           facebook_url?: string | null
           free_shipping_threshold?: number
           id?: number
           instagram_url?: string | null
           logo_path?: string | null
+          low_stock_threshold?: number
           shipping_fee?: number
           store_name?: string
+          store_open?: boolean
           tagline?: string | null
           tiktok_url?: string | null
           updated_at?: string
@@ -1352,7 +1462,38 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_stock: {
+        Args: {
+          p_mode: string
+          p_note?: string
+          p_quantity: number
+          p_variant_id: string
+        }
+        Returns: number
+      }
+      admin_customers: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: {
+          customer_key: string
+          email: string
+          last_order_at: string
+          name: string
+          orders_count: number
+          phone: string
+          registered: boolean
+          total_count: number
+          total_spent: number
+        }[]
+      }
       admin_dashboard_stats: { Args: never; Returns: Json }
+      admin_sales_report: {
+        Args: { p_from: string; p_granularity?: string; p_to: string }
+        Returns: Json
+      }
+      admin_save_product: {
+        Args: { p_images: Json; p_product: Json; p_variants: Json }
+        Returns: string
+      }
       admin_set_payment_status: {
         Args: {
           p_note?: string
@@ -1361,9 +1502,83 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_update_order_status: {
+        Args: {
+          p_courier?: string
+          p_note?: string
+          p_order_id: string
+          p_status: Database["public"]["Enums"]["order_status"]
+          p_tracking_number?: string
+          p_tracking_url?: string
+        }
+        Returns: {
+          address_line: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          city: string
+          coupon_code: string | null
+          coupon_id: string | null
+          courier: string | null
+          created_at: string
+          customer_name: string
+          delivered_at: string | null
+          discount_total: number
+          email: string | null
+          id: string
+          notes: string | null
+          order_number: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          phone: string
+          postal_code: string | null
+          shipping_fee: number
+          status: Database["public"]["Enums"]["order_status"]
+          subtotal: number
+          total: number
+          tracking_number: string | null
+          tracking_url: string | null
+          updated_at: string
+          user_id: string | null
+          whatsapp_opt_in: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "orders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       check_rate_limit: {
         Args: { p_key: string; p_limit: number; p_window_seconds: number }
         Returns: boolean
+      }
+      claim_notifications: {
+        Args: { p_ids?: string[]; p_limit?: number; p_manual?: boolean }
+        Returns: {
+          attempts: number
+          channel: string
+          created_at: string
+          error: string | null
+          event: Database["public"]["Enums"]["notification_event"]
+          id: string
+          language: string
+          last_attempt_at: string | null
+          order_id: string | null
+          phone: string
+          provider_message_id: string | null
+          response: Json | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["notification_status"]
+          template_name: string
+          updated_at: string
+          variables: Json
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "notification_logs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       has_purchased: { Args: { p_product_id: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
@@ -1406,6 +1621,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_best_seller: boolean
+          is_featured: boolean
           is_luxury: boolean
           is_new_arrival: boolean
           name: string
@@ -1438,6 +1654,21 @@ export type Database = {
         | "brands"
         | "category"
       inventory_reason: "order" | "cancel" | "return" | "restock" | "adjustment"
+      notification_event:
+        | "order_placed"
+        | "order_confirmed"
+        | "order_processing"
+        | "order_shipped"
+        | "order_delivered"
+        | "order_cancelled"
+        | "test"
+      notification_status:
+        | "pending"
+        | "sending"
+        | "sent"
+        | "delivered"
+        | "read"
+        | "failed"
       order_status:
         | "pending"
         | "confirmed"
@@ -1601,6 +1832,23 @@ export const Constants = {
         "category",
       ],
       inventory_reason: ["order", "cancel", "return", "restock", "adjustment"],
+      notification_event: [
+        "order_placed",
+        "order_confirmed",
+        "order_processing",
+        "order_shipped",
+        "order_delivered",
+        "order_cancelled",
+        "test",
+      ],
+      notification_status: [
+        "pending",
+        "sending",
+        "sent",
+        "delivered",
+        "read",
+        "failed",
+      ],
       order_status: [
         "pending",
         "confirmed",

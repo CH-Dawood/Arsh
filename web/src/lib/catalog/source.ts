@@ -27,8 +27,8 @@ export interface CatalogSource {
 
 export const PAGE_SIZE = 24;
 
-export const toSummary = ({ id, slug, name, price, compareAtPrice, images, sizes, badges, brand, category, inStock, createdAt }: Product): ProductSummary =>
-  ({ id, slug, name, price, compareAtPrice, images: images.slice(0, 2), sizes, badges, brand, category, inStock, createdAt });
+export const toSummary = ({ id, slug, name, price, compareAtPrice, images, sizes, badges, brand, category, inStock, createdAt, featured }: Product): ProductSummary =>
+  ({ id, slug, name, price, compareAtPrice, images: images.slice(0, 2), sizes, badges, brand, category, inStock, createdAt, featured });
 
 /** Search terms: lowercase letters/digits only, at most 8. */
 export const searchTerms = (q: string) => q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).slice(0, 8);

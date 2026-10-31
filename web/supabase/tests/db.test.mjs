@@ -173,8 +173,8 @@ check('tracking works with number + phone', tracked?.status === 'pending' && tra
 check('tracking with wrong phone returns nothing', (await svc(`select track_order($1, '03119999999') t`, [order.order_number])).rows[0].t === null)
 
 // --- Admin order lifecycle ----------------------------------------------
-await fails('invalid status jump rejected', () => as('authenticated', admin, (tx) =>
-  tx.query(`update orders set status='delivered' where id=$1`, [order.order_id])), 'INVALID_STATUS_TRANSITION')
+await fails('pending order cannot be marked returned', () => as('authenticated', admin, (tx) =>
+  tx.query(`update orders set status='returned' where id=$1`, [order.order_id])), 'INVALID_STATUS_TRANSITION')
 await as('authenticated', admin, (tx) => tx.query(`update orders set status='cancelled', cancel_reason='Customer request' where id=$1`, [order.order_id]), true)
 check('cancel restocks variants', (await one(`select stock from product_variants where id=$1`, [ids.vM])).stock === 3
   && (await one(`select stock from product_variants where id=$1`, [ids.vL])).stock === 5)
@@ -185,7 +185,117 @@ await fails('cancelled order cannot be revived', () => as('authenticated', admin
 check('stock never double-restocked', (await one(`select coalesce(sum(delta),0) s from inventory_movements where variant_id=$1`, [ids.vM])).s == 3)
 
 const stats = (await as('authenticated', admin, (tx) => tx.query(`select admin_dashboard_stats() s`))).rows[0].s
-check('admin dashboard stats', stats.total_orders === 1 && stats.sales_by_day.length === 30)
+check('admin dashboard stats', stats.total_orders === 1 && stats.sales_by_day.length === 30 && stats.status_counts.cancelled === 1)
+
+// --- Admin operations (status control, notifications, inventory, reports) -----
+const asAdmin = (q, p) => as('authenticated', admin, (tx) => tx.query(q, p), true)
+const rows = async (q, p) => (await db.query(q, p)).rows
+
+await db.query(`update notification_settings set enabled = true`)
+await db.query(`update notification_settings set events = jsonb_set(events, '{order_processing,enabled}', 'false')`)
+
+const place = async (cust, list) => (await svc(`select * from place_order($1::jsonb, $2::jsonb, 'cod')`,
+  [items(list), JSON.stringify(cust)])).rows[0]
+const optIn = { ...customer, whatsapp_opt_in: true }
+const orderA = await place(optIn, [{ variant_id: ids.vL, quantity: 1 }])
+const orderB = await place({ ...customer, full_name: 'Bilal Ahmed', phone: '03211234567' }, [{ variant_id: ids.vL, quantity: 1 }])
+
+check('opted-in order queues "order placed" WhatsApp', (await rows(`select phone, event, status from notification_logs where order_id=$1`, [orderA.order_id]))
+  .some((r) => r.event === 'order_placed' && r.phone === '923001234567' && r.status === 'pending'))
+check('order without opt-in queues nothing', (await rows(`select 1 from notification_logs where order_id=$1`, [orderB.order_id])).length === 0)
+
+await fails('customer cannot use admin_update_order_status', () => as('authenticated', alice, (tx) =>
+  tx.query(`select * from admin_update_order_status($1, 'confirmed')`, [orderA.order_id])), 'FORBIDDEN')
+await fails('anon cannot use admin_update_order_status', () => as('anon', null, (tx) =>
+  tx.query(`select * from admin_update_order_status($1, 'confirmed')`, [orderA.order_id])), 'permission denied')
+
+await asAdmin(`select * from admin_update_order_status($1, 'confirmed', 'Called customer, address verified')`, [orderA.order_id])
+const histA = await rows(`select to_status, note, actor_id from order_status_history where order_id=$1 order by id`, [orderA.order_id])
+check('status change records note and admin', histA.at(-1).to_status === 'confirmed' && histA.at(-1).note === 'Called customer, address verified' && histA.at(-1).actor_id === admin)
+check('other customer\'s order unchanged', (await one(`select status from orders where id=$1`, [orderB.order_id])).status === 'pending')
+check('"confirmed" WhatsApp queued', (await rows(`select 1 from notification_logs where order_id=$1 and event='order_confirmed'`, [orderA.order_id])).length === 1)
+
+await asAdmin(`select * from admin_update_order_status($1, 'confirmed', 'saved again')`, [orderA.order_id])
+check('saving the same status adds no history', (await rows(`select 1 from order_status_history where order_id=$1`, [orderA.order_id])).length === histA.length)
+
+await asAdmin(`select * from admin_update_order_status($1, 'processing')`, [orderA.order_id])
+check('disabled event ("being prepared") is not queued', (await rows(`select 1 from notification_logs where order_id=$1 and event='order_processing'`, [orderA.order_id])).length === 0)
+
+await asAdmin(`select * from admin_update_order_status($1, 'shipped', null, 'TCS', 'TCS123456')`, [orderA.order_id])
+const shipped = await one(`select courier, tracking_number from orders where id=$1`, [orderA.order_id])
+const shipLog = await one(`select variables from notification_logs where order_id=$1 and event='order_shipped'`, [orderA.order_id])
+check('shipping saves courier + tracking', shipped.courier === 'TCS' && shipped.tracking_number === 'TCS123456')
+check('"shipped" WhatsApp carries courier + tracking', JSON.stringify(shipLog?.variables) === JSON.stringify([orderA.order_number, 'TCS', 'TCS123456']))
+
+await asAdmin(`select * from admin_update_order_status($1, 'processing', 'Wrong parcel, re-packing')`, [orderA.order_id])
+await asAdmin(`select * from admin_update_order_status($1, 'shipped')`, [orderA.order_id])
+check('re-entering a status never re-sends WhatsApp', (await rows(`select 1 from notification_logs where order_id=$1 and event='order_shipped'`, [orderA.order_id])).length === 1)
+
+await asAdmin(`select * from admin_update_order_status($1, 'delivered')`, [orderA.order_id])
+check('delivered time recorded', (await one(`select delivered_at from orders where id=$1`, [orderA.order_id])).delivered_at !== null)
+await fails('delivered order cannot be cancelled (use return)', () => as('authenticated', admin, (tx) =>
+  tx.query(`select * from admin_update_order_status($1, 'cancelled')`, [orderA.order_id])), 'INVALID_STATUS_TRANSITION')
+check('tracking shows delivery time', (await svc(`select track_order($1, '03001234567') t`, [orderA.order_number])).rows[0].t.delivered_at !== null)
+
+const claimed = (await svc(`select id from claim_notifications(null, 50)`)).rows
+check('sender claims queued messages', claimed.length === 4) // placed, confirmed, shipped, delivered
+check('a second sender gets nothing (no double send)', (await svc(`select id from claim_notifications(null, 50)`)).rows.length === 0)
+await db.query(`update notification_logs set status='failed', error='test' where id=$1`, [claimed[0].id])
+check('failed message can be retried', (await svc(`select id from claim_notifications($1::uuid[], 5, true)`, [[claimed[0].id]])).rows.length === 1)
+check('anon cannot read notification logs', (await as('anon', null, (tx) => tx.query(`select * from notification_logs`))).rows.length === 0)
+check('customer cannot read notification logs', (await as('authenticated', alice, (tx) => tx.query(`select * from notification_logs`))).rows.length === 0)
+await fails('customer cannot claim notifications', () => as('authenticated', alice, (tx) => tx.query(`select * from claim_notifications()`)), 'permission denied')
+
+const before = (await one(`select stock from product_variants where id=$1`, [ids.vM])).stock
+check('admin sets stock with a note', (await asAdmin(`select admin_adjust_stock($1, 'set', 12, 'Stock count') s`, [ids.vM])).rows[0].s === 12)
+check('admin adds stock', (await asAdmin(`select admin_adjust_stock($1, 'add', -2, 'Damaged') s`, [ids.vM])).rows[0].s === 10)
+const lastMove = await one(`select delta, note, actor_id from inventory_movements where variant_id=$1 order by id desc limit 1`, [ids.vM])
+check('stock ledger keeps note + admin', lastMove.delta === -2 && lastMove.note === 'Damaged' && lastMove.actor_id === admin && before !== 12)
+await fails('stock cannot go negative', () => as('authenticated', admin, (tx) => tx.query(`select admin_adjust_stock($1, 'add', -99)`, [ids.vM])), 'check')
+await fails('customer cannot adjust stock', () => as('authenticated', alice, (tx) => tx.query(`select admin_adjust_stock($1, 'set', 99)`, [ids.vM])), 'FORBIDDEN')
+
+await asAdmin(`select admin_set_payment_status($1, 'paid')`, [orderA.order_id])
+const report = (await asAdmin(`select admin_sales_report(current_date - 1, current_date + 1, 'day') r`)).rows[0].r
+check('report: net revenue counts only paid orders', report.totals.net_revenue === orderA.total)
+check('report: gross excludes cancelled orders', report.totals.gross_sales === 9000 * 2 && report.totals.cancelled_orders === 1)
+check('report: best products and categories', report.best_products.length > 0 && report.best_categories[0].name === '2 Piece Suits')
+await fails('customer cannot read sales report', () => as('authenticated', alice, (tx) => tx.query(`select admin_sales_report(current_date, current_date)`)), 'FORBIDDEN')
+
+const custs = (await asAdmin(`select * from admin_customers(null, 50, 0)`)).rows
+const aliceRow = custs.find((c) => c.phone === '03001234567')
+check('customers grouped by phone with spend', aliceRow && Number(aliceRow.orders_count) === 2 && Number(aliceRow.total_spent) === orderA.total)
+check('customer search by name', (await asAdmin(`select * from admin_customers('bilal')`)).rows.length === 1)
+check('registered customers without orders listed', custs.some((c) => c.email === 'bob@x.pk' && Number(c.orders_count) === 0))
+
+// Product editor (one transaction)
+const cat2 = (await one(`select id from categories where slug='printed-suits'`)).id
+const sz = Object.fromEntries((await rows(`select code, id from sizes`)).map((r) => [r.code, r.id]))
+const savedId = (await asAdmin(`select admin_save_product($1::jsonb, $2::jsonb, $3::jsonb) id`, [
+  JSON.stringify({ name: 'Admin Test Suit', slug: 'admin-test-suit', category_id: cat2, base_price: 5000, compare_at_price: 6000, is_featured: true }),
+  JSON.stringify([{ storage_path: 'products/a.webp', alt: 'Front' }, { storage_path: 'products/b.webp', alt: 'Back' }]),
+  JSON.stringify([{ size_id: sz.S, sku: 'ATS-S', stock: 4 }, { size_id: sz.M, sku: 'ATS-M', stock: 6 }]),
+])).rows[0].id
+check('product editor creates product + images + variants', (await rows(`select 1 from product_variants where product_id=$1`, [savedId])).length === 2
+  && (await rows(`select 1 from product_images where product_id=$1`, [savedId])).length === 2)
+const vS = (await one(`select id from product_variants where sku='ATS-S'`)).id
+const imgB = (await one(`select id from product_images where storage_path='products/b.webp'`)).id
+await asAdmin(`select admin_save_product($1::jsonb, $2::jsonb, $3::jsonb)`, [
+  JSON.stringify({ id: savedId, name: 'Admin Test Suit II', slug: 'admin-test-suit', category_id: cat2, base_price: 4500 }),
+  JSON.stringify([{ id: imgB, alt: 'Back now first' }]),
+  JSON.stringify([{ id: vS, size_id: sz.S, sku: 'ATS-S', stock: 9 }]),
+])
+const editedImgs = await rows(`select storage_path, sort_order from product_images where product_id=$1`, [savedId])
+check('editor reorders/removes images', editedImgs.length === 1 && editedImgs[0].storage_path === 'products/b.webp' && editedImgs[0].sort_order === 0)
+check('editor removes dropped variants', (await rows(`select sku from product_variants where product_id=$1`, [savedId])).map((r) => r.sku).join() === 'ATS-S')
+check('editor stock change is in the ledger', (await one(`select delta, note from inventory_movements where variant_id=$1 order by id desc limit 1`, [vS])).note === 'Product editor')
+await fails('product needs at least one variant', () => as('authenticated', admin, (tx) =>
+  tx.query(`select admin_save_product($1::jsonb, '[]'::jsonb, '[]'::jsonb)`, [JSON.stringify({ id: savedId, name: 'x', slug: 'admin-test-suit', category_id: cat2, base_price: 1 })])), 'VARIANT_REQUIRED')
+await fails('customer cannot save products', () => as('authenticated', alice, (tx) =>
+  tx.query(`select admin_save_product('{}'::jsonb, '[]'::jsonb, '[]'::jsonb)`)), 'FORBIDDEN')
+
+await db.query(`update store_settings set store_open = false`)
+await fails('closed store rejects orders', () => place(customer, [{ variant_id: ids.vL, quantity: 1 }]), 'STORE_CLOSED')
+await db.query(`update store_settings set store_open = true`)
 
 // --- Reviews -------------------------------------------------------------
 await fails('non-buyer cannot review', () => as('authenticated', bob, (tx) =>

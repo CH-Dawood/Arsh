@@ -9,7 +9,7 @@ export const imageUrl = (path: string) =>
   path.startsWith("https://") ? path : `${env.supabaseUrl}/storage/v1/object/public/catalog/${path.replace(/^\/+/, "")}`;
 
 const PRODUCT_FIELDS = `id, slug, name, short_description, description, fabric, embroidery, care_instructions, piece_count,
-  base_price, compare_at_price, is_new_arrival, is_best_seller, is_luxury, created_at,
+  base_price, compare_at_price, is_new_arrival, is_best_seller, is_luxury, is_featured, created_at,
   images:product_images(storage_path, alt, sort_order),
   variants:product_variants(id, sku, stock, price_override, is_active, size:sizes(code, label, sort_order), color:colors(name))`;
 
@@ -20,7 +20,7 @@ type ProductRow = {
   id: string; slug: string; name: string; short_description: string | null; description: string | null;
   fabric: string | null; embroidery: string | null; care_instructions: string | null; piece_count: number | null;
   base_price: number; compare_at_price: number | null; is_new_arrival: boolean; is_best_seller: boolean; is_luxury: boolean;
-  created_at: string;
+  is_featured: boolean; created_at: string;
   images: { storage_path: string; alt: string | null; sort_order: number }[];
   variants: { id: string; sku: string; stock: number; price_override: number | null; is_active: boolean;
     size: { code: string; label: string; sort_order: number }; color: { name: string } | null }[];
@@ -55,6 +55,7 @@ function toProduct(r: ProductRow): Product {
     category: { name: r.category.name, slug: r.category.slug },
     inStock: variants.some((v) => v.stock > 0),
     createdAt: r.created_at,
+    featured: r.is_featured,
     shortDescription: r.short_description ?? "",
     description: r.description ?? r.short_description ?? "",
     fabric: r.fabric,
@@ -81,15 +82,17 @@ const fail = (error: { message: string } | null) => {
 async function collectionsQuery(): Promise<Collection[]> {
   const { data, error } = await db()
     .from("home_sections")
-    .select("title, slug, kind, image_path, category:categories(slug, description)")
+    .select("title, slug, kind, image_path, category:categories(slug, description, image_path)")
     .order("sort_order");
   fail(error);
   return (data ?? []).map((s) => {
-    const category = s.category as { slug: string; description: string | null } | null;
+    const category = s.category as { slug: string; description: string | null; image_path: string | null } | null;
+    // A category tile uses its own image, falling back to the category's image from the admin.
+    const path = s.image_path ?? category?.image_path ?? null;
     return {
       slug: s.slug, title: s.title, kind: s.kind, categorySlug: category?.slug ?? null,
       description: category?.description || defaultDescription[s.kind],
-      image: s.image_path ? { url: imageUrl(s.image_path), alt: s.title } : null,
+      image: path ? { url: imageUrl(path), alt: s.title } : null,
     };
   });
 }
@@ -159,6 +162,8 @@ export const supabaseSource: CatalogSource = {
       instagramUrl: s!.instagram_url, tiktokUrl: s!.tiktok_url, facebookUrl: s!.facebook_url,
       freeShippingThreshold: s!.free_shipping_threshold, shippingFee: s!.shipping_fee,
       codEnabled: s!.cod_enabled, bankTransferEnabled: s!.bank_transfer_enabled,
+      logoUrl: s!.logo_path ? imageUrl(s!.logo_path) : null,
+      storeOpen: s!.store_open, closedMessage: s!.closed_message,
     };
   },
 

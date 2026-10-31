@@ -30,15 +30,28 @@ export function OrderStatus({ order }: { order: TrackedOrder }) {
       ) : (
         <ol className="grid gap-4 sm:grid-cols-5">
           {steps.map((s, i) => {
-            const done = i <= current;
+            // Delivered is the end of the journey, so it reads as completed rather than "current".
+            const done = i < current || (i === current && s === "delivered");
+            const now = i === current && !done;
+            const at = reachedAt(s) ?? (s === "delivered" ? order.delivered_at : undefined);
             return (
-              <li key={s} className="flex items-center gap-3 sm:flex-col sm:items-start">
-                <span className={cn("grid size-8 shrink-0 place-items-center rounded-full border", done ? "border-espresso bg-espresso text-ivory" : "border-hairline text-taupe")}>
+              <li key={s} className="flex items-center gap-3 sm:flex-col sm:items-start" aria-current={now ? "step" : undefined}>
+                <span
+                  className={cn(
+                    "grid size-8 shrink-0 place-items-center rounded-full border",
+                    done && "border-espresso bg-espresso text-ivory",
+                    now && "border-gold-deep bg-gold-deep text-ivory ring-4 ring-gold/25",
+                    !done && !now && "border-hairline text-taupe",
+                  )}
+                >
                   {done ? <Check className="size-4" aria-hidden /> : <span className="text-xs">{i + 1}</span>}
                 </span>
                 <span>
-                  <span className={cn("block text-sm", !done && "text-cocoa")}>{stepLabel[s]}</span>
-                  {reachedAt(s) && <span className="block text-xs text-cocoa">{date(reachedAt(s)!)}</span>}
+                  <span className={cn("block text-sm", now && "font-medium text-gold-deep", !done && !now && "text-cocoa")}>
+                    {stepLabel[s]}
+                    <span className="sr-only">{done ? " (completed)" : now ? " (current step)" : " (pending)"}</span>
+                  </span>
+                  {at ? <span className="block text-xs text-cocoa">{date(at)}</span> : now ? null : !done && <span className="block text-xs text-taupe">Pending</span>}
                 </span>
               </li>
             );

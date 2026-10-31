@@ -41,8 +41,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${cormorant.variable} ${jost.variable}`}>
-      <body className="min-h-dvh">{children}</body>
+    // suppressHydrationWarning: browser extensions add attributes to <html>/<body> before React
+    // hydrates (e.g. "crxlauncher"). It only affects these two tags' own attributes.
+    <html lang="en" className={`${cormorant.variable} ${jost.variable}`} suppressHydrationWarning>
+      <body className="min-h-dvh" suppressHydrationWarning>{children}</body>
     </html>
   );
 }

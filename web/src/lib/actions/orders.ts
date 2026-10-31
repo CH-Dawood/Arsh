@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { isSupabaseConfigured } from "@/lib/env";
 import { NOT_LIVE, rateLimit } from "@/lib/security";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,6 +17,7 @@ export interface TrackedOrder {
   courier: string | null;
   tracking_number: string | null;
   tracking_url: string | null;
+  delivered_at: string | null;
   items: { name: string; variant: string; quantity: number }[];
   history: { status: string; at: string }[];
 }
@@ -37,4 +39,24 @@ export async function trackOrder(_: TrackState, formData: FormData): Promise<Tra
   const order = await lookupOrder(parsed.data.order_number, parsed.data.phone);
   // Same answer for "no such order" and "wrong phone", so order numbers can't be probed.
   return order ? { ok: true, message: "", order } : { ok: false, message: "We couldn't find an order with those details." };
+}
+
+/**
+ * Live refresh for an order already shown to this visitor. Needs the same order number + phone
+ * pair as the first lookup; on the confirmation page the phone comes from the httpOnly cookie,
+ * so it never has to reach the browser.
+ */
+export async function refreshOrder(orderNumber: string, phone?: string): Promise<TrackedOrder | null> {
+  if (!isSupabaseConfigured) return null;
+  let p = phone;
+  if (!p) {
+    try {
+      const ref = JSON.parse((await cookies()).get("last_order")?.value ?? "{}") as { n?: string; p?: string };
+      if (ref.n === orderNumber) p = ref.p;
+    } catch {}
+  }
+  const parsed = trackSchema.safeParse({ order_number: orderNumber, phone: p ?? "" });
+  if (!parsed.success) return null;
+  if (!(await rateLimit("track-live", 60, 600))) return null;
+  return lookupOrder(parsed.data.order_number, parsed.data.phone);
 }
