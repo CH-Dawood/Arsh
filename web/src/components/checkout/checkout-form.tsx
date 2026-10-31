@@ -63,8 +63,16 @@ export function CheckoutForm({ settings }: { settings: Settings }) {
     });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_26rem]">
+    <form
+      onSubmit={(ev) => {
+        const key = ev.currentTarget.elements.namedItem("checkout_key") as HTMLInputElement;
+        key.value ||= crypto.randomUUID();
+        onSubmit(ev);
+      }}
+      noValidate className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_26rem]">
       <input type="hidden" name="items" value={items} />
+      {/* Filled on the first submit and reused on retries, so a resent order is recognised as the same one. */}
+      <input type="hidden" name="checkout_key" defaultValue="" />
       <input type="hidden" name="coupon" value={quoted?.quote.coupon?.code ?? ""} />
 
       <div className="space-y-12">

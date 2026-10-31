@@ -22,6 +22,8 @@ export const checkoutSchema = z.object({
   coupon: optionalText(30),
   // Unticked checkboxes are absent from the form, so only an explicit "on" counts as consent.
   whatsapp_opt_in: z.string().optional().transform((v) => v === "on"),
+  // One random key per checkout visit: a double submit or network retry returns the same order.
+  checkout_key: z.uuid().optional(),
 });
 export type CheckoutInput = z.input<typeof checkoutSchema>;
 

@@ -506,8 +506,9 @@ function SideArt({ uid, kind, color, trim }: { uid: string; kind: GarmentKind; c
 }
 
 function Photo({ src, alt, full }: { src: string; alt: string; full: boolean }) {
+  // The rail sits below the fold: lazy also stops React from preloading every photo in the page head.
   // eslint-disable-next-line @next/next/no-img-element -- the photo doubles as a CSS mask source, so it must be a plain <img> with the exact URL
-  return <img src={src} alt={alt} draggable={false} className={`pointer-events-none absolute inset-x-0 bottom-0 size-auto w-full select-none object-contain object-top ${full ? "top-0 h-full" : "top-[8%] h-[92%]"}`} />;
+  return <img src={src} alt={alt} loading="lazy" decoding="async" draggable={false} className={`pointer-events-none absolute inset-x-0 bottom-0 size-auto w-full select-none object-contain object-top ${full ? "top-0 h-full" : "top-[8%] h-[92%]"}`} />;
 }
 
 type Sim = {

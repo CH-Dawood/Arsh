@@ -11,6 +11,8 @@ export function useFormAction<S>(action: (state: Awaited<S>, data: FormData) => 
   const [, startTransition] = useTransition();
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Ignore repeat submits (Enter key, double tap) while a request is already in flight.
+    if (pending) return;
     const data = new FormData(e.currentTarget);
     startTransition(() => dispatch(data));
   };

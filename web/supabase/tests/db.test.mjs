@@ -297,6 +297,17 @@ await db.query(`update store_settings set store_open = false`)
 await fails('closed store rejects orders', () => place(customer, [{ variant_id: ids.vL, quantity: 1 }]), 'STORE_CLOSED')
 await db.query(`update store_settings set store_open = true`)
 
+// --- Duplicate submission protection -------------------------------------
+const keyed = { ...customer, checkout_key: '6f1c2a4e-9b7d-4c3e-8a21-0d5f7e9b3c11' }
+const stockBefore = (await one(`select stock from product_variants where id=$1`, [ids.vL])).stock
+const first = await place(keyed, [{ variant_id: ids.vL, quantity: 1 }])
+const again = await place(keyed, [{ variant_id: ids.vL, quantity: 1 }])
+check('same checkout key returns the same order', first.order_id === again.order_id && first.order_number === again.order_number)
+check('resubmission does not take stock twice', (await one(`select stock from product_variants where id=$1`, [ids.vL])).stock === stockBefore - 1)
+check('one order row per checkout key', Number((await one(`select count(*) c from orders where checkout_key=$1`, [keyed.checkout_key])).c) === 1)
+const otherPhone = await place({ ...keyed, phone: '03451234567' }, [{ variant_id: ids.vL, quantity: 1 }]).catch((e) => e)
+check('a reused key with another phone never reveals the first order', otherPhone instanceof Error || otherPhone.order_id !== first.order_id)
+
 // --- Reviews -------------------------------------------------------------
 await fails('non-buyer cannot review', () => as('authenticated', bob, (tx) =>
   tx.query(`insert into reviews (product_id, user_id, rating) values ($1,$2,5)`, [ids.p, bob])), 'row-level security')

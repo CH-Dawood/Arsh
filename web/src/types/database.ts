@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -828,6 +828,7 @@ export type Database = {
           address_line: string
           cancel_reason: string | null
           cancelled_at: string | null
+          checkout_key: string | null
           city: string
           coupon_code: string | null
           coupon_id: string | null
@@ -858,6 +859,7 @@ export type Database = {
           address_line: string
           cancel_reason?: string | null
           cancelled_at?: string | null
+          checkout_key?: string | null
           city: string
           coupon_code?: string | null
           coupon_id?: string | null
@@ -888,6 +890,7 @@ export type Database = {
           address_line?: string
           cancel_reason?: string | null
           cancelled_at?: string | null
+          checkout_key?: string | null
           city?: string
           coupon_code?: string | null
           coupon_id?: string | null
@@ -1515,6 +1518,7 @@ export type Database = {
           address_line: string
           cancel_reason: string | null
           cancelled_at: string | null
+          checkout_key: string | null
           city: string
           coupon_code: string | null
           coupon_id: string | null

@@ -13,7 +13,8 @@ export default async function CheckoutPage() {
     <>
       <PageHeader title="Checkout" crumbs={[{ name: "Shopping Bag", href: "/cart" }, { name: "Checkout", href: "/checkout" }]} />
       <div className="container-page">
-        {!s.storeOpen ? (
+        {/* Only an explicit "closed" pauses checkout, so a settings entry cached before the flag existed can't block orders. */}
+        {s.storeOpen === false ? (
           <div className="py-20 text-center">
             <p className="font-display text-3xl">Orders are paused</p>
             <p className="mx-auto mt-3 max-w-md text-cocoa">{s.closedMessage || "We're not taking orders right now. Your bag is saved, so please check back soon."}</p>

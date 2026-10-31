@@ -42,7 +42,7 @@ export function Gallery({ images, name }: { images: CatalogImage[]; name: string
                 aria-current={i === active}
                 className={cn("relative block aspect-[3/4] w-full overflow-hidden bg-champagne transition-opacity", i === active ? "ring-1 ring-espresso" : "opacity-60 hover:opacity-100")}
               >
-                <Image src={img.url} alt="" fill sizes="80px" className="object-cover" />
+                <Image src={img.url} alt="" fill sizes="80px" loading="eager" className="object-cover" />
               </button>
             </li>
           ))}
