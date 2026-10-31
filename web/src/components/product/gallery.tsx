@@ -30,7 +30,8 @@ export function Gallery({ images, name }: { images: CatalogImage[]; name: string
   }
 
   return (
-    <div className="lg:grid lg:grid-cols-[5rem_1fr] lg:gap-4">
+    // The thumbnail column only exists with 2+ photos; otherwise the main photo takes the full width.
+    <div className={cn(images.length > 1 && "lg:grid lg:grid-cols-[5rem_1fr] lg:gap-4")}>
       {images.length > 1 && (
         <ul className="hidden flex-col gap-3 lg:flex" aria-label="Product images">
           {images.map((img, i) => (

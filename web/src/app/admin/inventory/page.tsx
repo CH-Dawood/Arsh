@@ -37,9 +37,12 @@ async function Inventory({ searchParams }: { searchParams: Promise<SP> }) {
     .eq("is_active", true);
   if (filter === "low") query = query.gt("stock", 0).lte("stock", low);
   if (filter === "out") query = query.eq("stock", 0);
-  // "ABC-M" style input searches SKUs; anything else searches product names.
-  if (q && /^[A-Za-z0-9]+-[A-Za-z0-9-]*$/.test(q)) query = query.ilike("sku", `%${q}%`);
-  else if (q) query = query.ilike("product.name", `%${q}%`);
+  // A search matches the SKU or the product name (q is already limited to letters, digits, spaces and dashes).
+  if (q) {
+    const { data: named } = await supabase.from("products").select("id").ilike("name", `%${q}%`).limit(200);
+    const ids = (named ?? []).map((p) => p.id);
+    query = query.or([`sku.ilike."%${q}%"`, ...(ids.length ? [`product_id.in.(${ids.join(",")})`] : [])].join(","));
+  }
   const [{ data: variants, count }, { data: moves }] = await Promise.all([
     query.order("stock").order("sku").range((page - 1) * PAGE, page * PAGE - 1),
     supabase
@@ -61,8 +64,9 @@ async function Inventory({ searchParams }: { searchParams: Promise<SP> }) {
       className={`px-3 py-1.5 text-sm ${filter === value ? "bg-espresso text-ivory" : "hover:bg-linen"}`}>{label}</Link>
   );
 
+  // Side-by-side only when the stock table fits without scrolling; below that the history stacks underneath.
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    <div className="grid gap-6 2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <Card>
         <div className="flex flex-col gap-3 border-b border-hairline p-4 lg:flex-row lg:items-center lg:justify-between">
           <nav className="flex gap-1" aria-label="Stock filter">{tab("", "All sizes")}{tab("low", `Low (≤ ${low})`)}{tab("out", "Out of stock")}</nav>

@@ -17,7 +17,8 @@ export function AdminPageHeader({ title, description, actions }: { title: string
 
 export function Card({ className, title, actions, children, ...rest }: ComponentProps<"section"> & { title?: string; actions?: ReactNode }) {
   return (
-    <section className={cn("border border-hairline bg-paper", className)} {...rest}>
+    // min-w-0 lets a card shrink inside grid layouts, so wide tables scroll within it instead of widening the page.
+    <section className={cn("min-w-0 border border-hairline bg-paper", className)} {...rest}>
       {(title || actions) && (
         <header className="flex items-center justify-between gap-4 border-b border-hairline px-5 py-4">
           {title && <h2 className="label text-espresso">{title}</h2>}

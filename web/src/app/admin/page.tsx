@@ -6,7 +6,8 @@ import { requireAdmin } from "@/lib/auth";
 import { formatPKR, formatPKRCompact } from "@/lib/format";
 import { ORDER_STATUSES, statusLabel, statusTone, type OrderStatus } from "@/lib/orders";
 
-export const metadata = { title: "Overview" };
+// The layout's "%s · Admin" template only reaches child routes, so this page spells it out.
+export const metadata = { title: { absolute: "Overview · Admin" } };
 
 interface Stats {
   total_orders: number;
