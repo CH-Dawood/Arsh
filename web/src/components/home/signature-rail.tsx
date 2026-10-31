@@ -1,33 +1,21 @@
-import { ButtonLink } from "@/components/ui/button";
-import { ClothingRailHero, type RailGarment } from "@/components/ui/product-rail-gallery";
-import { getProduct, getProducts } from "@/lib/catalog";
-import type { Product, ProductSummary } from "@/lib/catalog/types";
+import type { RailGarment } from "@/components/ui/product-rail-gallery";
+import { getHanger, getProduct, getProducts } from "@/lib/catalog";
+import type { HangerConfig, HangerItem, Product, ProductSummary } from "@/lib/catalog/types";
 import { formatPKR } from "@/lib/format";
+import { SignatureRailView, centreFeatured, railPhoto } from "./signature-rail-view";
 
 const RAIL_SIZE = 8;
-
-/**
- * The rail's photo canvas is 200 × 310. Unsplash crops to that shape on its CDN; any other
- * source (Supabase Storage uploads) goes through Next's optimiser at a rail-sized width.
- */
-function railPhoto(url: string) {
-  if (url.startsWith("https://images.unsplash.com/")) {
-    const u = new URL(url);
-    u.search = new URLSearchParams({ auto: "format", fit: "crop", crop: "top", w: "480", h: "744", q: "75" }).toString();
-    return u.toString();
-  }
-  return `/_next/image?url=${encodeURIComponent(url)}&w=640&q=75`;
-}
+const MIN_PIECES = 3;
 
 /** Pieces featured in the admin lead; then ones with a front and back photo (they turn best), couture and best sellers. */
-function pick(items: ProductSummary[]) {
+function pick(items: ProductSummary[], size: number) {
   const score = (p: ProductSummary) =>
     (p.featured ? 8 : 0) + (p.images.length > 1 ? 4 : 0) + (p.badges.includes("luxury") ? 2 : 0) + (p.badges.includes("bestseller") ? 1 : 0);
   return items
     .filter((p) => p.inStock && p.images.length > 0)
     .map((p, i) => ({ p, i, s: score(p) }))
     .sort((a, b) => b.s - a.s || a.i - b.i)
-    .slice(0, RAIL_SIZE)
+    .slice(0, size)
     .map((x) => x.p.slug);
 }
 
@@ -37,14 +25,18 @@ function sizeRange(p: Product) {
   return `Sizes ${codes[0]}–${codes.at(-1)}`;
 }
 
-function toGarment(p: Product): RailGarment {
+type Piece = { product: Product; item?: HangerItem };
+
+function toGarment({ product: p, item }: Piece): RailGarment {
   const [front, back] = p.images;
+  const image = item?.image ?? front?.url;
+  const backImage = item?.backImage ?? (item?.image ? undefined : back?.url);
   return {
     id: p.id,
-    name: p.name,
-    description: p.shortDescription,
-    image: railPhoto(front.url),
-    backImage: back ? railPhoto(back.url) : undefined,
+    name: item?.title ?? p.name,
+    description: item?.description ?? p.shortDescription,
+    image: image ? railPhoto(image) : undefined,
+    backImage: backImage ? railPhoto(backImage) : undefined,
     tag: formatPKR(p.price),
     details: [p.pieceCount ? `${p.pieceCount}-piece` : null, p.category.name, sizeRange(p), p.brand?.name ?? null].filter(
       (d): d is string => Boolean(d),
@@ -53,31 +45,38 @@ function toGarment(p: Product): RailGarment {
   };
 }
 
-export async function SignatureRail() {
-  const { items } = await getProducts({ pageSize: 60 });
-  const products = (await Promise.all(pick(items).map((slug) => getProduct(slug)))).filter((p): p is Product => Boolean(p));
-  if (products.length < 3) return null;
+/** Admin-chosen pieces that can still be sold, topped up with automatic picks if too few remain. */
+async function resolvePieces(config: HangerConfig | null): Promise<Piece[]> {
+  const limit = config?.maxItems ?? RAIL_SIZE;
+  const chosen = config?.items ?? [];
+  const resolved = await Promise.all(chosen.map(async (item) => ({ product: await getProduct(item.slug), item })));
+  const pieces: Piece[] = resolved
+    .flatMap(({ product, item }) => (product?.inStock && (item.image || product.images.length) ? [{ product, item }] : []))
+    .slice(0, limit);
+  if (pieces.length >= MIN_PIECES) return pieces;
 
-  return (
-    <section aria-labelledby="signature-rail" className="mt-20 border-y border-hairline sm:mt-28">
-      <div className="container-page pt-14 text-center sm:pt-20">
-        <p className="label text-gold-deep">The Arsh Edit</p>
-        <h2 id="signature-rail" className="mt-3 text-heading">Signature pieces, on the rail</h2>
-        <p className="mx-auto mt-4 max-w-xl text-cocoa">
-          Brush along the rail, slide a hanger aside, or lift a piece to turn it and see the detail.
-        </p>
-      </div>
-      <ClothingRailHero
-        aria-labelledby="signature-rail"
-        items={products.map(toGarment)}
-        hanger="wood"
-        autoplay
-        interval={3200}
-        caption="Hover or tap a piece to turn it to the front."
-        labels={{ front: "Front", back: "Back", close: "Close", show: "Show", view: "View piece" }}
-        action={<ButtonLink href="/shop" variant="outline">Shop the collection</ButtonLink>}
-        className="pb-6"
-      />
-    </section>
-  );
+  const { items } = await getProducts({ pageSize: 60 });
+  const taken = new Set(pieces.map((x) => x.product.slug));
+  const extra = pick(items.filter((p) => !taken.has(p.slug)), limit - pieces.length);
+  const more = (await Promise.all(extra.map((slug) => getProduct(slug)))).filter((p): p is Product => Boolean(p));
+  return [...pieces, ...more.map((product) => ({ product }))];
+}
+
+/** Product ids the rail would pick by itself; the admin offers them as a starting point. */
+export async function automaticRailProductIds() {
+  return (await resolvePieces(null)).map((x) => x.product.id);
+}
+
+export async function SignatureRail() {
+  const config = await getHanger();
+  if (config && !config.enabled) return null;
+  const pieces = await resolvePieces(config);
+  if (pieces.length < MIN_PIECES) return null;
+  // A featured piece that was hidden, sold out or removed falls back to the first piece the admin chose.
+  const featured = config?.featuredProductId && pieces.some((x) => x.product.id === config.featuredProductId)
+    ? config.featuredProductId
+    : config?.items.length ? pieces[0].product.id : null;
+  const { ordered, rest } = centreFeatured(pieces.map(toGarment), featured);
+
+  return <SignatureRailView config={config} items={ordered} restIndex={rest} />;
 }

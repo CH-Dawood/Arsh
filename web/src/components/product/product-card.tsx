@@ -34,6 +34,8 @@ export function ProductCard({ product, priority = false }: { product: ProductSum
     <article className="group relative">
       <Tilt className="relative transition-shadow duration-700 ease-luxe group-hover:shadow-lift">
         <Link href={href} className="relative block aspect-[3/4] overflow-hidden bg-champagne" tabIndex={-1} aria-hidden>
+          {/* Same box with or without a photo, so the grid never jumps. */}
+          {!primary && <span className="absolute inset-0 grid place-items-center font-display text-2xl uppercase tracking-[0.3em] text-espresso/25">Arsh</span>}
           {primary && (
             <Image
               src={primary.url}
@@ -91,7 +93,7 @@ export function ProductCard({ product, priority = false }: { product: ProductSum
 
       <div className="mt-4 space-y-1.5">
         {product.brand && <p className="label text-[0.625rem] text-cocoa">{product.brand.name}</p>}
-        <h3 className="font-display text-lg leading-snug sm:text-xl">
+        <h3 className="line-clamp-2 break-words font-display text-lg leading-snug sm:text-xl" title={product.name}>
           <Link href={href} className="after:absolute after:inset-0 after:content-[''] lg:after:hidden hover:text-gold-deep">
             {product.name}
           </Link>

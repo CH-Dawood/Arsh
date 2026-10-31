@@ -85,7 +85,8 @@ async function collectionsQuery(): Promise<Collection[]> {
     .select("title, slug, kind, image_path, category:categories(slug, description, image_path)")
     .order("sort_order");
   fail(error);
-  return (data ?? []).map((s) => {
+  // A tile whose category is hidden comes back without it (RLS); leave that tile out instead of showing every product.
+  return (data ?? []).filter((s) => s.kind !== "category" || s.category).map((s) => {
     const category = s.category as { slug: string; description: string | null; image_path: string | null } | null;
     // A category tile uses its own image, falling back to the category's image from the admin.
     const path = s.image_path ?? category?.image_path ?? null;
@@ -168,12 +169,38 @@ export const supabaseSource: CatalogSource = {
   },
 
   async banners() {
-    const { data, error } = await db().from("banners").select("id, heading, subheading, promo_text, cta_label, cta_href, image_path, alt").order("sort_order");
+    // RLS returns only active banners inside their optional start/end dates.
+    const { data, error } = await db().from("banners")
+      .select("id, heading, subheading, promo_text, cta_label, cta_href, image_path, mobile_image_path, alt")
+      .order("sort_order").order("created_at");
     fail(error);
     return (data ?? []).map((b) => ({
       id: b.id, heading: b.heading, subheading: b.subheading, promoText: b.promo_text,
       ctaLabel: b.cta_label, ctaHref: b.cta_href, image: { url: imageUrl(b.image_path), alt: b.alt },
+      mobileImage: b.mobile_image_path ? { url: imageUrl(b.mobile_image_path), alt: b.alt } : null,
     }));
+  },
+
+  async hanger() {
+    const [{ data: s, error }, { data: rows, error: itemsError }] = await Promise.all([
+      db().from("hanger_settings").select("*, featured:hanger_items(product_id)").eq("id", 1).maybeSingle(),
+      // Inactive products are hidden by RLS, so their pieces come back without a product and are dropped.
+      db().from("hanger_items").select("product_id, image_path, back_image_path, title, description, product:products(slug)").order("sort_order"),
+    ]);
+    fail(error ?? itemsError);
+    if (!s) return null;
+    return {
+      enabled: s.is_enabled, eyebrow: s.eyebrow, heading: s.heading, subtitle: s.subtitle, caption: s.caption,
+      ctaLabel: s.cta_label, ctaHref: s.cta_href, maxItems: s.max_items, autoplay: s.autoplay, interval: s.interval_ms,
+      featuredProductId: (s.featured as { product_id: string } | null)?.product_id ?? null,
+      items: (rows ?? []).flatMap((r) => {
+        const product = r.product as { slug: string } | null;
+        return product ? [{
+          productId: r.product_id, slug: product.slug, title: r.title, description: r.description,
+          image: r.image_path ? imageUrl(r.image_path) : null, backImage: r.back_image_path ? imageUrl(r.back_image_path) : null,
+        }] : [];
+      }),
+    };
   },
 
   collections: collectionsQuery,

@@ -90,6 +90,34 @@ export interface Banner {
   ctaLabel: string | null;
   ctaHref: string | null;
   image: CatalogImage;
+  /** Optional portrait crop for phones; the desktop image is used when absent. */
+  mobileImage?: CatalogImage | null;
+}
+
+/** One piece on the homepage 3D hanger: a catalogue product plus optional overrides. */
+export interface HangerItem {
+  productId: string;
+  slug: string;
+  image: string | null;
+  backImage: string | null;
+  title: string | null;
+  description: string | null;
+}
+
+/** Admin-managed content of the homepage 3D hanger section. */
+export interface HangerConfig {
+  enabled: boolean;
+  eyebrow: string;
+  heading: string;
+  subtitle: string | null;
+  caption: string | null;
+  ctaLabel: string;
+  ctaHref: string;
+  maxItems: number;
+  autoplay: boolean;
+  interval: number;
+  featuredProductId: string | null;
+  items: HangerItem[];
 }
 
 export interface StoreSettings {

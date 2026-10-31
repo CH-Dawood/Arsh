@@ -71,8 +71,8 @@ export async function saveProduct(input: ProductInput) {
       p_variants: p.variants.map((v) => ({ id: v.id ?? null, size_id: v.size_id, color_id: v.color_id || null, sku: v.sku, stock: v.stock, is_active: v.is_active })),
     });
     if (error) return fail(dbMessage(error));
-    updateTag("products");
-    updateTag("collections");
+    // The hanger refers to products by slug, so a rename or hide must refresh it too.
+    ["products", "collections", "hanger"].forEach((t) => updateTag(t));
     return { ok: true, message: p.id ? "Product saved." : "Product created.", data: { id: data as string } };
   });
 }
@@ -83,6 +83,7 @@ export async function setProductActive(id: string, active: boolean) {
     const { error } = await db.from("products").update({ is_active: active }).eq("id", id);
     if (error) return fail(dbMessage(error));
     updateTag("products");
+    updateTag("hanger");
     return { ok: true, message: active ? "Product is now visible in the store." : "Product hidden from the store." };
   });
 }
@@ -90,16 +91,25 @@ export async function setProductActive(id: string, active: boolean) {
 export async function deleteProduct(id: string) {
   return adminAction(async ({ db }) => {
     if (!uuid.safeParse(id).success) return fail("Unknown product.");
-    const { data: images } = await db.from("product_images").select("storage_path").eq("product_id", id);
+    const [{ data: images }, { data: hanger }] = await Promise.all([
+      db.from("product_images").select("storage_path").eq("product_id", id),
+      db.from("hanger_items").select("image_path, back_image_path").eq("product_id", id),
+    ]);
     const { error, count } = await db.from("products").delete({ count: "exact" }).eq("id", id);
     if (error) return fail(dbMessage(error));
     if (!count) return fail("That product no longer exists.");
-    // Past orders keep their own copy of name, price and photo path; only uploaded files are removed.
-    const uploaded = (images ?? []).map((i) => i.storage_path).filter((p) => !p.startsWith("https://"));
-    if (uploaded.length) await db.storage.from("catalog").remove(uploaded);
-    updateTag("products");
-    updateTag("collections");
-    return { ok: true, message: "Product deleted." };
+    // Past orders keep their own copy of the name, price and photo path, so a photo an order still
+    // shows is kept; any other uploaded file of this product is removed.
+    const uploaded = [...(images ?? []).map((i) => i.storage_path), ...(hanger ?? []).flatMap((h) => [h.image_path, h.back_image_path])]
+      .filter((p): p is string => Boolean(p && !p.startsWith("https://")));
+    if (uploaded.length) {
+      const { data: ordered } = await db.from("order_items").select("image_path").in("image_path", uploaded);
+      const keep = new Set((ordered ?? []).map((o) => o.image_path));
+      const unused = [...new Set(uploaded)].filter((p) => !keep.has(p));
+      if (unused.length) await db.storage.from("catalog").remove(unused);
+    }
+    ["products", "collections", "hanger"].forEach((t) => updateTag(t));
+    return { ok: true, message: "Product deleted. Past orders keep their details." };
   });
 }
 
@@ -120,7 +130,7 @@ export async function uploadCatalogImage(formData: FormData) {
   return adminAction<{ path: string; url: string }>(async ({ db }) => {
     const file = formData.get("file");
     const folder = String(formData.get("folder") ?? "products");
-    if (!["products", "categories", "banners", "branding"].includes(folder)) return fail("Unknown upload folder.");
+    if (!["products", "categories", "banners", "hanger", "branding"].includes(folder)) return fail("Unknown upload folder.");
     if (!(file instanceof File) || file.size === 0) return fail("Choose an image to upload.");
     if (file.size > MAX_BYTES) return fail("Images must be 5 MB or smaller.");
     const bytes = new Uint8Array(await file.arrayBuffer());

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Reveal } from "@/components/motion/reveal";
 import type { Collection } from "@/lib/catalog/types";
+import { cn } from "@/lib/format";
 
 export function CategoryGrid({ collections }: { collections: Collection[] }) {
   return (
@@ -11,9 +12,14 @@ export function CategoryGrid({ collections }: { collections: Collection[] }) {
         <h2 id="shop-by-category" className="mt-3 text-heading">Shop by Category</h2>
       </Reveal>
 
-      <ul className="-mx-4 mt-10 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 lg:grid-cols-6 lg:gap-4">
+      {/* Up to six tiles fill one row; with more, the row scrolls sideways (as on phones) instead of leaving a stray tile below. */}
+      <ul className={cn(
+        "-mx-4 mt-10 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none]",
+        collections.length <= 6 && "sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 lg:grid-cols-6 lg:gap-4",
+        collections.length > 6 && "lg:gap-4",
+      )}>
         {collections.map((c, i) => (
-          <li key={c.slug} className="w-[44vw] shrink-0 snap-start sm:w-auto">
+          <li key={c.slug} className={cn("w-[44vw] shrink-0 snap-start", collections.length <= 6 ? "sm:w-auto" : "sm:w-[28vw] lg:w-[14%]")}>
             <Reveal delay={i * 0.06}>
               <Link href={`/collections/${c.slug}`} className="group block">
                 <div className="relative aspect-[3/4] overflow-hidden bg-champagne">

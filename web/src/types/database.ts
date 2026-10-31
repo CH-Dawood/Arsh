@@ -121,6 +121,7 @@ export type Database = {
           sort_order: number
           starts_at: string | null
           subheading: string | null
+          title: string | null
           updated_at: string
         }
         Insert: {
@@ -138,6 +139,7 @@ export type Database = {
           sort_order?: number
           starts_at?: string | null
           subheading?: string | null
+          title?: string | null
           updated_at?: string
         }
         Update: {
@@ -155,6 +157,7 @@ export type Database = {
           sort_order?: number
           starts_at?: string | null
           subheading?: string | null
+          title?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -489,6 +492,109 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      hanger_items: {
+        Row: {
+          back_image_path: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_path: string | null
+          is_active: boolean
+          product_id: string
+          sort_order: number
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          back_image_path?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_path?: string | null
+          is_active?: boolean
+          product_id: string
+          sort_order: number
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          back_image_path?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_path?: string | null
+          is_active?: boolean
+          product_id?: string
+          sort_order?: number
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hanger_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hanger_settings: {
+        Row: {
+          autoplay: boolean
+          caption: string | null
+          cta_href: string
+          cta_label: string
+          eyebrow: string
+          featured_item_id: string | null
+          heading: string
+          id: number
+          interval_ms: number
+          is_enabled: boolean
+          max_items: number
+          subtitle: string | null
+          updated_at: string
+        }
+        Insert: {
+          autoplay?: boolean
+          caption?: string | null
+          cta_href?: string
+          cta_label?: string
+          eyebrow?: string
+          featured_item_id?: string | null
+          heading?: string
+          id?: number
+          interval_ms?: number
+          is_enabled?: boolean
+          max_items?: number
+          subtitle?: string | null
+          updated_at?: string
+        }
+        Update: {
+          autoplay?: boolean
+          caption?: string | null
+          cta_href?: string
+          cta_label?: string
+          eyebrow?: string
+          featured_item_id?: string | null
+          heading?: string
+          id?: number
+          interval_ms?: number
+          is_enabled?: boolean
+          max_items?: number
+          subtitle?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hanger_settings_featured_fk"
+            columns: ["featured_item_id"]
+            isOneToOne: false
+            referencedRelation: "hanger_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       home_sections: {
         Row: {
@@ -1489,9 +1595,17 @@ export type Database = {
         }[]
       }
       admin_dashboard_stats: { Args: never; Returns: Json }
+      admin_delete_category: {
+        Args: { p_id: string; p_move_to?: string }
+        Returns: number
+      }
       admin_sales_report: {
         Args: { p_from: string; p_granularity?: string; p_to: string }
         Returns: Json
+      }
+      admin_save_hanger: {
+        Args: { p_items: Json; p_settings: Json }
+        Returns: undefined
       }
       admin_save_product: {
         Args: { p_images: Json; p_product: Json; p_variants: Json }

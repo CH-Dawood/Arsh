@@ -27,6 +27,13 @@ export async function getBanners() {
   return source.banners();
 }
 
+export async function getHanger() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("hanger");
+  return source.hanger();
+}
+
 export async function getCollections() {
   "use cache";
   cacheLife("hours");

@@ -40,6 +40,8 @@ export default function AnalyticsPage({ searchParams }: PageProps<"/admin/analyt
 
 async function Analytics({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
+  // Session check first: it makes this a per-request render, so "today" is read at request time.
+  const { supabase } = await requireAdmin();
   const today = pkToday();
   const range = one(sp.range) || "30d";
   const presets: Record<string, [string, string]> = {
@@ -55,7 +57,6 @@ async function Analytics({ searchParams }: { searchParams: Promise<SP> }) {
   const span = (Date.parse(to) - Date.parse(from)) / 86_400_000;
   const unit = ["day", "week", "month", "year"].includes(one(sp.by)) ? one(sp.by) : span > 400 ? "month" : span > 92 ? "week" : "day";
 
-  const { supabase } = await requireAdmin();
   const { data, error } = await supabase.rpc("admin_sales_report", { p_from: from, p_to: to, p_granularity: unit });
   if (error || !data) return <EmptyState title="Couldn't load the report">Check the dates and try again.</EmptyState>;
   const r = data as unknown as Report;

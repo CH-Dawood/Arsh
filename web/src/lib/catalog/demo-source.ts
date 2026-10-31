@@ -20,6 +20,7 @@ function inCollection(p: Product, c: Collection) {
 export const demoSource: CatalogSource = {
   settings: async () => demoSettings,
   banners: async () => demoBanners,
+  hanger: async () => null,
   collections: async () => demoCollections,
   categories: async () => demoCategories,
   brands: async () => demoBrands,

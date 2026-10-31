@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { BarList, ColumnChart } from "@/components/admin/charts";
 import { LiveRefresh } from "@/components/admin/live-refresh";
-import { AdminPageHeader, Card, DataTable, EmptyState, StatCard, StatusBadge, formatDateTime } from "@/components/admin/ui";
+import { Suspense } from "react";
+import { AdminPageHeader, Card, DataTable, EmptyState, PageSkeleton, StatCard, StatusBadge, formatDateTime } from "@/components/admin/ui";
 import { requireAdmin } from "@/lib/auth";
 import { formatPKR, formatPKRCompact } from "@/lib/format";
 import { ORDER_STATUSES, statusLabel, statusTone, type OrderStatus } from "@/lib/orders";
@@ -30,7 +31,15 @@ interface Stats {
   recent_activity: { at: string; order_id: string; order_number: string; customer_name: string; from_status: string | null; to_status: string; note: string | null; actor: string | null }[];
 }
 
-export default async function AdminOverview() {
+export default function AdminOverview() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <Overview />
+    </Suspense>
+  );
+}
+
+async function Overview() {
   const { supabase } = await requireAdmin();
   const { data, error } = await supabase.rpc("admin_dashboard_stats");
   if (error || !data) return <EmptyState title="Couldn't load the dashboard">Check your connection and refresh the page.</EmptyState>;

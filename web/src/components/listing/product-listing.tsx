@@ -78,11 +78,18 @@ async function Listing({ basePath, searchParams, fixed = {}, categoryFilter = fa
 
       {result.items.length ? (
         <ProductGrid products={result.items} className="mt-10" priorityCount={4} />
-      ) : (
+      ) : size || (category && !fixed.category) ? (
         <div className="py-24 text-center">
           <p className="font-display text-3xl">Nothing matches these filters</p>
           <p className="mt-3 text-cocoa">Try another size or category.</p>
           <ButtonLink href={basePath} variant="outline" className="mt-8">Clear filters</ButtonLink>
+        </div>
+      ) : (
+        // A collection or category with no pieces yet (e.g. just created in the admin).
+        <div className="py-24 text-center">
+          <p className="font-display text-3xl">New pieces are on their way</p>
+          <p className="mt-3 text-cocoa">Nothing here just yet. Explore the rest of the collection in the meantime.</p>
+          <ButtonLink href="/shop" variant="outline" className="mt-8">Shop all</ButtonLink>
         </div>
       )}
 

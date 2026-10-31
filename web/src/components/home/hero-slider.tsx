@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import { motion, useReducedMotion } from "motion/react";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -60,13 +60,9 @@ export function HeroSlider({ banners }: { banners: Banner[] }) {
             className={cn("absolute inset-0 transition-opacity duration-[1.4s] ease-luxe", i === index ? "opacity-100" : "opacity-0")}
             aria-hidden={i !== index}
           >
-            <Image
-              src={b.image.url}
-              alt={b.image.alt}
-              fill
-              loading={i === 0 ? "eager" : "lazy"}
-              fetchPriority={i === 0 ? "high" : "low"}
-              sizes="(min-width: 1024px) 58vw, 100vw"
+            <BannerPicture
+              banner={b}
+              eager={i === 0}
               className={cn(
                 "object-cover object-[50%_18%] transition-transform ease-out",
                 !reduce && (i === index ? "scale-100 duration-[6s]" : "scale-[1.08] duration-0"),
@@ -142,6 +138,22 @@ export function HeroSlider({ banners }: { banners: Banner[] }) {
         )}
       </div>
     </section>
+  );
+}
+
+const DESKTOP_SIZES = "(min-width: 1024px) 58vw, 100vw";
+
+/** Desktop photo, swapped for the optional phone crop below the lg breakpoint (art direction via <picture>). */
+function BannerPicture({ banner, eager, className }: { banner: Banner; eager: boolean; className: string }) {
+  const common = { alt: banner.image.alt, fill: true, loading: eager ? "eager" : "lazy", fetchPriority: eager ? "high" : "low" } as const;
+  if (!banner.mobileImage) return <Image {...common} alt={banner.image.alt} src={banner.image.url} sizes={DESKTOP_SIZES} className={className} />;
+  const { props: { srcSet: desktop } } = getImageProps({ ...common, src: banner.image.url, sizes: DESKTOP_SIZES });
+  const { props: { srcSet: mobile, ...img } } = getImageProps({ ...common, src: banner.mobileImage.url, sizes: "100vw" });
+  return (
+    <picture>
+      <source media="(min-width: 1024px)" srcSet={desktop} sizes={DESKTOP_SIZES} />
+      <img {...img} alt={banner.image.alt} srcSet={mobile} className={className} />
+    </picture>
   );
 }
 

@@ -1,5 +1,5 @@
 import type {
-  Banner, Brand, Category, Collection, ContentPage, Faq, Product, ProductQuery, ProductSummary, StoreSettings,
+  Banner, Brand, Category, Collection, ContentPage, Faq, HangerConfig, Product, ProductQuery, ProductSummary, StoreSettings,
 } from "./types";
 
 export interface ProductPage {
@@ -13,6 +13,8 @@ export interface ProductPage {
 export interface CatalogSource {
   settings(): Promise<StoreSettings>;
   banners(): Promise<Banner[]>;
+  /** Admin-managed hanger content, or null when the store has none (the rail then picks pieces itself). */
+  hanger(): Promise<HangerConfig | null>;
   collections(): Promise<Collection[]>;
   categories(): Promise<Category[]>;
   brands(): Promise<Brand[]>;

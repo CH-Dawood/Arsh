@@ -20,7 +20,7 @@ export function Card({ className, title, actions, children, ...rest }: Component
     // min-w-0 lets a card shrink inside grid layouts, so wide tables scroll within it instead of widening the page.
     <section className={cn("min-w-0 border border-hairline bg-paper", className)} {...rest}>
       {(title || actions) && (
-        <header className="flex items-center justify-between gap-4 border-b border-hairline px-5 py-4">
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-hairline px-5 py-4">
           {title && <h2 className="label text-espresso">{title}</h2>}
           {actions}
         </header>

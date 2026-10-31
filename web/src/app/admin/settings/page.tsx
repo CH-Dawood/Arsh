@@ -1,19 +1,29 @@
 import { SettingsForm } from "@/components/admin/settings-form";
-import { AdminPageHeader, EmptyState } from "@/components/admin/ui";
+import { Suspense } from "react";
+import { AdminPageHeader, EmptyState, Skeleton } from "@/components/admin/ui";
 import { requireAdmin } from "@/lib/auth";
 import { imageUrl } from "@/lib/catalog/supabase-source";
 
 export const metadata = { title: "Store Settings" };
 
-export default async function SettingsPage() {
+export default function SettingsPage() {
+  return (
+    <>
+      <AdminPageHeader title="Store Settings" description="Everything here updates the website as soon as you save." />
+      <Suspense fallback={<Skeleton className="h-[40rem]" />}>
+        <Settings />
+      </Suspense>
+    </>
+  );
+}
+
+async function Settings() {
   const { supabase } = await requireAdmin();
   const { data: s } = await supabase.from("store_settings").select("*").eq("id", 1).single();
   if (!s) return <EmptyState title="Settings not found">Run the database migrations to create the settings row.</EmptyState>;
   const str = (v: string | number | null) => (v === null ? "" : String(v));
 
   return (
-    <>
-      <AdminPageHeader title="Store Settings" description="Everything here updates the website as soon as you save." />
       <SettingsForm
         logoUrl={s.logo_path ? imageUrl(s.logo_path) : null}
         initial={{
@@ -25,6 +35,5 @@ export default async function SettingsPage() {
           bank_name: str(s.bank_name), bank_account_title: str(s.bank_account_title), bank_account_number: str(s.bank_account_number), bank_iban: str(s.bank_iban),
         }}
       />
-    </>
   );
 }

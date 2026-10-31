@@ -9,15 +9,15 @@ import { deleteCategory, moveCategory, saveCategory } from "@/lib/admin/actions/
 import { uploadCatalogImage } from "@/lib/admin/actions/products";
 import { toastResult } from "@/lib/admin/toast";
 import { ConfirmDialog, Toggle } from "./client";
-import { AdminButton, Card, DataTable, EmptyState, FieldRow, TextArea, TextInput } from "./ui";
+import { AdminButton, Card, DataTable, EmptyState, FieldRow, SelectInput, TextArea, TextInput } from "./ui";
 
 export interface CategoryRow {
   id: string; name: string; slug: string; description: string | null; image_path: string | null; image_url: string | null;
-  is_active: boolean; product_count: number;
+  is_active: boolean; product_count: number; on_homepage: boolean;
 }
 
-type Draft = { id?: string; name: string; slug: string; description: string; image_path: string; image_url: string; is_active: boolean };
-const blank: Draft = { name: "", slug: "", description: "", image_path: "", image_url: "", is_active: true };
+type Draft = { id?: string; name: string; slug: string; description: string; image_path: string; image_url: string; is_active: boolean; on_homepage: boolean };
+const blank: Draft = { name: "", slug: "", description: "", image_path: "", image_url: "", is_active: true, on_homepage: false };
 const slugify = (s: string) => s.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_]+/g, "-").replace(/-+/g, "-");
 
 export function CategoriesManager({ categories }: { categories: CategoryRow[] }) {
@@ -25,6 +25,7 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
   const [pending, start] = useTransition();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [toDelete, setToDelete] = useState<CategoryRow | null>(null);
+  const [moveTo, setMoveTo] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const run = (fn: () => Promise<{ ok: boolean; message: string }>, after?: () => void) =>
@@ -72,10 +73,13 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
                     </div>
                   </td>
                   <td className="text-right tabular-nums">{c.product_count}</td>
-                  <td className="text-xs">{c.is_active ? "Shown" : <span className="text-cocoa">Hidden</span>}</td>
+                  <td className="text-xs">
+                    {c.is_active ? "Shown" : <span className="text-cocoa">Hidden</span>}
+                    {c.on_homepage && <span className="block text-cocoa">Homepage tile</span>}
+                  </td>
                   <td>
                     <div className="flex justify-end gap-1">
-                      <AdminButton size="sm" variant="ghost" onClick={() => setDraft({ id: c.id, name: c.name, slug: c.slug, description: c.description ?? "", image_path: c.image_path ?? "", image_url: c.image_url ?? "", is_active: c.is_active })} aria-label={`Edit ${c.name}`}><Pencil className="size-4" /></AdminButton>
+                      <AdminButton size="sm" variant="ghost" onClick={() => setDraft({ id: c.id, name: c.name, slug: c.slug, description: c.description ?? "", image_path: c.image_path ?? "", image_url: c.image_url ?? "", is_active: c.is_active, on_homepage: c.on_homepage })} aria-label={`Edit ${c.name}`}><Pencil className="size-4" /></AdminButton>
                       <AdminButton size="sm" variant="ghost" className="text-danger" onClick={() => setToDelete(c)} aria-label={`Delete ${c.name}`}><Trash2 className="size-4" /></AdminButton>
                     </div>
                   </td>
@@ -92,7 +96,7 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
             className="flex h-full flex-col overflow-y-auto p-6 pt-12"
             onSubmit={(e) => {
               e.preventDefault();
-              run(() => saveCategory({ id: draft.id, name: draft.name, slug: draft.slug, description: draft.description, image_path: draft.image_path, is_active: draft.is_active }), () => setDraft(null));
+              run(() => saveCategory({ id: draft.id, name: draft.name, slug: draft.slug, description: draft.description, image_path: draft.image_path, is_active: draft.is_active, on_homepage: draft.on_homepage }), () => setDraft(null));
             }}
           >
             <h2 className="text-2xl">{draft.id ? "Edit category" : "Add category"}</h2>
@@ -123,6 +127,7 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
                 </div>
               </div>
               <Toggle checked={draft.is_active} onChange={(x) => setDraft({ ...draft, is_active: x })} label="Show in store" description="Hidden categories disappear from menus and filters." />
+              <Toggle checked={draft.on_homepage} onChange={(x) => setDraft({ ...draft, on_homepage: x })} label="Show on the homepage" description="Adds a tile to “Shop by Category”, using this category's image." />
             </div>
             <div className="mt-auto flex justify-end gap-2 pt-8">
               <AdminButton variant="outline" onClick={() => setDraft(null)}>Cancel</AdminButton>
@@ -138,12 +143,24 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
         destructive
         confirmLabel="Delete category"
         pending={pending}
-        onCancel={() => setToDelete(null)}
-        onConfirm={() => toDelete && run(() => deleteCategory(toDelete.id), () => setToDelete(null))}
+        onCancel={() => { setToDelete(null); setMoveTo(""); }}
+        onConfirm={() => {
+          if (!toDelete) return;
+          if (toDelete.product_count && !moveTo) return toastResult({ ok: false, message: "Choose where to move its products first." });
+          run(() => deleteCategory(toDelete.id, moveTo || undefined), () => { setToDelete(null); setMoveTo(""); });
+        }}
       >
-        {toDelete?.product_count
-          ? `It still has ${toDelete.product_count} product(s); move them to another category first.`
-          : "If this category is used as a home page tile, that tile is removed too."}
+        {toDelete?.product_count ? (
+          <div className="space-y-3">
+            <p>It has {toDelete.product_count} product{toDelete.product_count === 1 ? "" : "s"}. They will be moved to the category you choose, then this one is deleted. Orders are not affected.</p>
+            <FieldRow label="Move products to *" htmlFor="c-move">
+              <SelectInput id="c-move" value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
+                <option value="">Choose a category…</option>
+                {categories.filter((c) => c.id !== toDelete.id).map((c) => <option key={c.id} value={c.id}>{c.name}{c.is_active ? "" : " (hidden)"}</option>)}
+              </SelectInput>
+            </FieldRow>
+          </div>
+        ) : "If this category is used as a home page tile, that tile is removed too. Orders are not affected."}
       </ConfirmDialog>
     </>
   );

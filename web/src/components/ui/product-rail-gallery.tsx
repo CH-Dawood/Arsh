@@ -55,6 +55,8 @@ export interface ClothingRailHeroProps extends React.ComponentProps<"section"> {
   /** Drawn hanger. Use "none" when your photos already include a hanger with its hook at the top. */
   hanger?: "wood" | "matte" | "none";
   labels?: ClothingRailHeroLabels;
+  /** Piece that faces the front while nobody is interacting (a featured piece). Omit to rest with every piece turned away. */
+  restIndex?: number;
   onOpenChange?: (index: number | null) => void;
 }
 
@@ -539,12 +541,14 @@ export function ClothingRailHero({
   interval = 2600,
   hanger = "wood",
   labels = DEFAULT_LABELS,
+  restIndex,
   onOpenChange,
   className,
   ...rest
 }: ClothingRailHeroProps) {
   const uid = React.useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const count = items.length;
+  const resting = restIndex !== undefined && restIndex >= 0 && restIndex < count ? restIndex : null;
   const stageRef = React.useRef(null as HTMLDivElement | null);
   const slots = React.useRef([] as (HTMLButtonElement | null)[]);
   const swings = React.useRef([] as (HTMLSpanElement | null)[]);
@@ -556,7 +560,7 @@ export function ClothingRailHero({
   const tags = React.useRef([] as (HTMLSpanElement | null)[]);
   const sim = React.useRef(emptySim());
   const [size, setSize] = React.useState({ width: 0, h: 300, carousel: false });
-  const [active, setActive] = React.useState(null as number | null);
+  const [active, setActive] = React.useState(resting);
   const [focusIndex, setFocusIndex] = React.useState(0);
   const [openIndex, setOpenIndex] = React.useState(null as number | null);
   const [reduced, setReduced] = React.useState(false);
@@ -566,7 +570,7 @@ export function ClothingRailHero({
   const pendingOpen = React.useRef(-1);
   const pointer = React.useRef({ id: -1, index: -1, x: 0, y: 0, t: 0, moved: false, kind: "", swipe: 0, lastX: 0, lastT: 0, v: 0 });
   const sideWidths = React.useMemo(() => items.map((item) => (item.image ? (item.sideImage ? 0.3 : 0.4) : SIDE[item.kind ?? "tee"].width)), [items]);
-  const live = React.useRef({ active: null as number | null, size, reduced, count, openIndex: null as number | null, carouselIndex: 0, sideWidths });
+  const live = React.useRef({ active: null as number | null, size, reduced, count, openIndex: null as number | null, carouselIndex: resting ?? 0, sideWidths });
   live.current = { ...live.current, active, size, reduced, count, openIndex, sideWidths };
 
   const carouselIndex = size.carousel ? (active ?? live.current.carouselIndex) : null;
@@ -954,7 +958,7 @@ export function ClothingRailHero({
         onPointerDown={onPointerDown}
         onPointerUp={(event) => finishPointer(event, false)}
         onPointerCancel={(event) => finishPointer(event, true)}
-        onPointerLeave={(event) => { if (event.pointerType === "mouse" && pointer.current.id < 0 && !size.carousel && !document.activeElement?.matches("[data-garment]:focus-visible")) choose(null); }}
+        onPointerLeave={(event) => { if (event.pointerType === "mouse" && pointer.current.id < 0 && !size.carousel && !document.activeElement?.matches("[data-garment]:focus-visible")) choose(resting); }}
         onKeyDown={onKeyDown}
       >
         <div aria-hidden="true" data-rail className="pointer-events-none absolute inset-x-0 z-0" style={{ top: railY - railR, height: railR * 2 }}>

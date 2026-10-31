@@ -308,6 +308,56 @@ check('one order row per checkout key', Number((await one(`select count(*) c fro
 const otherPhone = await place({ ...keyed, phone: '03451234567' }, [{ variant_id: ids.vL, quantity: 1 }]).catch((e) => e)
 check('a reused key with another phone never reveals the first order', otherPhone instanceof Error || otherPhone.order_id !== first.order_id)
 
+// --- Homepage content: banners and the 3D hanger ---------------------------
+const bannerSql = `insert into banners (title, heading, image_path, mobile_image_path, alt, is_active) values ('Test','Eid edit','banners/d.jpg','banners/m.jpg','Eid edit',false) returning id`
+await fails('anon cannot add banners', () => as('anon', null, (tx) => tx.query(bannerSql)), 'row-level security')
+await fails('customer cannot add banners', () => as('authenticated', alice, (tx) => tx.query(bannerSql)), 'row-level security')
+check('admin adds banner with desktop + mobile image', (await asAdmin(bannerSql)).rows.length === 1)
+check('disabled banner hidden from the public', (await as('anon', null, (tx) => tx.query(`select 1 from banners where heading='Eid edit'`))).rows.length === 0)
+check('anon reads hanger settings', (await as('anon', null, (tx) => tx.query(`select heading from hanger_settings`))).rows[0]?.heading === 'Signature pieces, on the rail')
+await fails('customer cannot change hanger settings', async () => {
+  const r = await as('authenticated', alice, (tx) => tx.query(`update hanger_settings set heading='Hacked'`))
+  if (r.affectedRows === 0) throw new Error('no rows updated (blocked by RLS)')
+})
+await fails('customer cannot add hanger pieces', () => as('authenticated', alice, (tx) =>
+  tx.query(`insert into hanger_items (product_id, sort_order) values ($1, 1)`, [ids.p])), 'row-level security')
+await fails('customer cannot save the hanger', () => as('authenticated', alice, (tx) => tx.query(`select admin_save_hanger('{}'::jsonb, '[]'::jsonb)`)), 'FORBIDDEN')
+await fails('anon cannot save the hanger', () => as('anon', null, (tx) => tx.query(`select admin_save_hanger('{}'::jsonb, '[]'::jsonb)`)), 'permission denied')
+
+const saveHanger = (settings, list) => asAdmin(`select admin_save_hanger($1::jsonb, $2::jsonb)`, [JSON.stringify(settings), JSON.stringify(list)])
+await saveHanger({ heading: 'On the rail', featured_product_id: ids.p, max_items: 6, interval_ms: 3000 },
+  [{ product_id: ids.p, title: 'Featured title', image_path: 'products/custom.webp' }, { product_id: ids.p2, is_active: false }])
+const hs = await one(`select s.heading, s.max_items, s.interval_ms, h.product_id, h.title, h.image_path from hanger_settings s left join hanger_items h on h.id = s.featured_item_id`)
+check('hanger saves settings and featured piece', hs.heading === 'On the rail' && hs.max_items === 6 && hs.interval_ms === 3000 && hs.product_id === ids.p)
+check('hanger piece keeps custom title and image', hs.title === 'Featured title' && hs.image_path === 'products/custom.webp')
+check('public sees only enabled hanger pieces', (await as('anon', null, (tx) => tx.query(`select product_id from hanger_items`))).rows.length === 1)
+await saveHanger({ featured_product_id: ids.p }, [{ product_id: ids.p2 }, { product_id: ids.p }])
+check('hanger pieces can be reordered', (await rows(`select product_id from hanger_items order by sort_order`)).map((r) => r.product_id).join() === [ids.p2, ids.p].join())
+await saveHanger({ featured_product_id: ids.p }, [{ product_id: ids.p }])
+check('removed hanger piece is deleted, product untouched', Number((await one(`select count(*) c from hanger_items`)).c) === 1
+  && Number((await one(`select count(*) c from products where id=$1`, [ids.p2])).c) === 1)
+await fails('hanger rejects an out-of-range speed', () => saveHanger({ interval_ms: 100 }, [{ product_id: ids.p }]), 'check constraint')
+const afterDelete = await as('authenticated', admin, async (tx) => {
+  await tx.query(`delete from products where id=$1`, [ids.p])
+  return (await tx.query(`select featured_item_id, (select count(*) from hanger_items) n from hanger_settings`)).rows[0]
+})
+check('deleting a product removes its piece and clears featured safely', afterDelete.featured_item_id === null && Number(afterDelete.n) === 0)
+
+// --- Safe category deletion ------------------------------------------------
+const twoPiece = (await one(`select id from categories where slug='2-piece-suits'`)).id
+const threePiece = (await one(`select id from categories where slug='3-piece-suits'`)).id
+await fails('category with products is not deleted blindly', () => asAdmin(`select admin_delete_category($1)`, [twoPiece]), 'CATEGORY_NOT_EMPTY')
+await fails('customer cannot delete categories', () => as('authenticated', alice, (tx) => tx.query(`select admin_delete_category($1, $2)`, [twoPiece, threePiece])), 'FORBIDDEN')
+const moved = await as('authenticated', admin, async (tx) => {
+  const n = (await tx.query(`select admin_delete_category($1, $2) n`, [twoPiece, threePiece])).rows[0].n
+  const left = (await tx.query(`select count(*) c from products where category_id=$1`, [threePiece])).rows[0].c
+  const gone = (await tx.query(`select count(*) c from categories where id=$1`, [twoPiece])).rows[0].c
+  const orders = (await tx.query(`select count(*) c from order_items`)).rows[0].c
+  return { n, left: Number(left), gone: Number(gone), orders: Number(orders) }
+})
+check('deleting a category moves its products first', moved.n >= 2 && moved.left >= 2 && moved.gone === 0)
+check('category deletion keeps order history', moved.orders > 0)
+
 // --- Reviews -------------------------------------------------------------
 await fails('non-buyer cannot review', () => as('authenticated', bob, (tx) =>
   tx.query(`insert into reviews (product_id, user_id, rating) values ($1,$2,5)`, [ids.p, bob])), 'row-level security')

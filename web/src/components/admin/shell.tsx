@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3, Boxes, ExternalLink, FolderTree, LayoutDashboard, LogOut, Menu, MessageCircle, Package, Settings, ShoppingBag, UserRound, Users,
+  BarChart3, Boxes, ExternalLink, FolderTree, GalleryHorizontal, LayoutDashboard, LogOut, Menu, MessageCircle, Package, Settings, Shirt, ShoppingBag, UserRound, Users,
 } from "lucide-react";
 import { Suspense, useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
@@ -15,6 +15,8 @@ const nav = [
   { href: "/admin/orders", label: "Orders", Icon: ShoppingBag },
   { href: "/admin/products", label: "Products", Icon: Package },
   { href: "/admin/categories", label: "Categories", Icon: FolderTree },
+  { href: "/admin/banners", label: "Homepage Banners", Icon: GalleryHorizontal },
+  { href: "/admin/hanger", label: "3D Hanger", Icon: Shirt },
   { href: "/admin/customers", label: "Customers", Icon: Users },
   { href: "/admin/inventory", label: "Inventory", Icon: Boxes },
   { href: "/admin/notifications", label: "WhatsApp", Icon: MessageCircle },

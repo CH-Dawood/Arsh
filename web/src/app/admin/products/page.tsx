@@ -33,6 +33,7 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<SP> }) {
   const q = one(sp.q).replace(/[^\p{L}\p{N}\s-]/gu, "").trim().slice(0, 60);
   const category = one(sp.category);
   const visibility = ["visible", "hidden"].includes(one(sp.visibility)) ? one(sp.visibility) : "";
+  const stockFilter = ["in", "low", "out"].includes(one(sp.stock)) ? one(sp.stock) : "";
   const page = Math.max(1, Number.parseInt(one(sp.page), 10) || 1);
 
   const { supabase } = await requireAdmin();
@@ -49,18 +50,38 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<SP> }) {
   if (q) query = query.or(`name.ilike.%${q}%,slug.ilike.%${q}%`);
   if (cat) query = query.eq("category_id", cat.id);
   if (visibility) query = query.eq("is_active", visibility === "visible");
+  if (stockFilter) {
+    // Stock is per size, so totals are worked out from the variants first.
+    const { data: variants } = await supabase.from("product_variants").select("product_id, stock").eq("is_active", true).limit(20000);
+    const totals = new Map<string, { sum: number; low: boolean }>();
+    for (const v of variants ?? []) {
+      const t = totals.get(v.product_id) ?? { sum: 0, low: false };
+      totals.set(v.product_id, { sum: t.sum + v.stock, low: t.low || (v.stock > 0 && v.stock <= low) });
+    }
+    const { data: all } = await supabase.from("products").select("id").limit(20000);
+    const matches = (id: string) => {
+      const t = totals.get(id) ?? { sum: 0, low: false };
+      return stockFilter === "in" ? t.sum > 0 : stockFilter === "out" ? t.sum === 0 : t.low;
+    };
+    const every = (all ?? []).map((p) => p.id);
+    const yes = every.filter(matches);
+    const no = every.filter((id) => !matches(id));
+    // Send whichever id list is shorter, so the request stays small for large catalogues.
+    if (yes.length <= no.length) query = query.in("id", yes.length ? yes : ["00000000-0000-0000-0000-000000000000"]);
+    else if (no.length) query = query.not("id", "in", `(${no.join(",")})`);
+  }
   const { data: products, count, error } = await query.order("created_at", { ascending: false }).range((page - 1) * PAGE, page * PAGE - 1);
 
   const href = (p: number) => {
     const u = new URLSearchParams();
-    Object.entries({ q, category: cat?.slug ?? "", visibility }).forEach(([k, v]) => v && u.set(k, v));
+    Object.entries({ q, category: cat?.slug ?? "", visibility, stock: stockFilter }).forEach(([k, v]) => v && u.set(k, v));
     if (p > 1) u.set("page", String(p));
     return `/admin/products${u.size ? `?${u}` : ""}`;
   };
 
   return (
     <Card>
-      <form className="grid gap-3 border-b border-hairline p-4 sm:grid-cols-[2fr_1fr_1fr_auto]" role="search">
+      <form className="grid gap-3 border-b border-hairline p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_auto]" role="search">
         <label className="sr-only" htmlFor="p-q">Search products</label>
         <TextInput id="p-q" name="q" defaultValue={q} placeholder="Search by name" />
         <label className="sr-only" htmlFor="p-cat">Category</label>
@@ -74,13 +95,23 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<SP> }) {
           <option value="visible">Visible only</option>
           <option value="hidden">Hidden only</option>
         </SelectInput>
-        <AdminButton type="submit">Apply</AdminButton>
+        <label className="sr-only" htmlFor="p-stock">Stock</label>
+        <SelectInput id="p-stock" name="stock" defaultValue={stockFilter}>
+          <option value="">Any stock</option>
+          <option value="in">In stock</option>
+          <option value="low">Low stock (≤ {low})</option>
+          <option value="out">Sold out</option>
+        </SelectInput>
+        <div className="flex gap-2">
+          <AdminButton type="submit">Apply</AdminButton>
+          {(q || cat || visibility || stockFilter) && <Link href="/admin/products" className="inline-flex h-10 items-center px-2 text-sm underline underline-offset-4">Clear</Link>}
+        </div>
       </form>
 
       {error ? <EmptyState title="Couldn't load products">Please refresh the page.</EmptyState>
         : !products?.length ? (
-          <EmptyState title={q || cat || visibility ? "No products match" : "No products yet"} action={<AdminLinkButton href="/admin/products/new">Add your first product</AdminLinkButton>}>
-            {q || cat || visibility ? "Try another search or clear the filters." : "Add a product to start selling."}
+          <EmptyState title={q || cat || visibility || stockFilter ? "No products match" : "No products yet"} action={<AdminLinkButton href="/admin/products/new">Add your first product</AdminLinkButton>}>
+            {q || cat || visibility || stockFilter ? "Try another search or clear the filters." : "Add a product to start selling."}
           </EmptyState>
         ) : (
           <>
