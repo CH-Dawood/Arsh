@@ -37,7 +37,8 @@
   --color-accent: var(--color-champagne);
   --color-accent-foreground: var(--color-espresso);
 
-  --font-display: var(--font-cormorant), "Times New Roman", serif;
+  /* --font-numerals covers digits only, so the serif letters are unchanged. */
+  --font-display: var(--font-numerals), var(--font-cormorant), "Times New Roman", serif;
   --font-sans: var(--font-jost), system-ui, sans-serif;
 
   --text-display: clamp(2.5rem, 1.6rem + 3.6vw, 5rem);
@@ -64,6 +65,7 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    font-variant-numeric: lining-nums;
     text-rendering: optimizeLegibility;
   }
 
