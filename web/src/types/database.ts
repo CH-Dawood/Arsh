@@ -1601,6 +1601,7 @@ export type Database = {
       admin_access_list: {
         Args: never
         Returns: {
+          account_exists: boolean
           created_at: string
           email: string
           is_owner: boolean
@@ -1642,6 +1643,7 @@ export type Database = {
         Returns: number
       }
       admin_grant_second: { Args: { p_email: string }; Returns: boolean }
+      admin_link_second: { Args: never; Returns: boolean }
       admin_revoke_second: { Args: never; Returns: undefined }
       admin_sales_report: {
         Args: { p_from: string; p_granularity?: string; p_to: string }

@@ -2,12 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { grantSecondAdmin, revokeSecondAdmin } from "@/lib/admin/actions/access";
+import { grantSecondAdmin, linkSecondAdmin, revokeSecondAdmin } from "@/lib/admin/actions/access";
 import { toastResult } from "@/lib/admin/toast";
 import { ConfirmDialog } from "./client";
 import { AdminButton, Card, FieldRow, TextInput, formatDateTime } from "./ui";
 
-export interface AccessRow { slot: number; email: string; is_owner: boolean; linked: boolean; linked_at: string | null; created_at: string }
+export interface AccessRow { slot: number; email: string; is_owner: boolean; linked: boolean; account_exists: boolean; linked_at: string | null; created_at: string }
 
 export function AccessManager({ rows, isOwner }: { rows: AccessRow[]; isOwner: boolean }) {
   const router = useRouter();
@@ -34,11 +34,18 @@ export function AccessManager({ rows, isOwner }: { rows: AccessRow[]; isOwner: b
                 <p className="break-all font-medium">{r.email}</p>
                 <p className="text-xs text-cocoa">
                   {r.is_owner ? "Owner" : "Second admin"} ·{" "}
-                  {r.linked ? `Active${r.linked_at ? ` since ${formatDateTime(r.linked_at)}` : ""}` : "Waiting for them to create and confirm an account with this email"}
+                  {r.linked ? `Active${r.linked_at ? ` since ${formatDateTime(r.linked_at)}` : ""}`
+                    : r.account_exists ? "An account with this email exists but isn't linked yet"
+                    : "No account uses this exact email yet. Check the spelling, or ask them to sign up with it"}
                 </p>
               </div>
               {!r.is_owner && isOwner && (
-                <AdminButton size="sm" variant="outline" className="text-danger" onClick={() => setConfirmRevoke(true)}>Remove</AdminButton>
+                <div className="flex gap-2">
+                  {!r.linked && r.account_exists && (
+                    <AdminButton size="sm" disabled={pending} onClick={() => run(linkSecondAdmin)}>Link account</AdminButton>
+                  )}
+                  <AdminButton size="sm" variant="outline" className="text-danger" onClick={() => setConfirmRevoke(true)}>Remove</AdminButton>
+                </div>
               )}
             </li>
           ))}
@@ -65,8 +72,9 @@ export function AccessManager({ rows, isOwner }: { rows: AccessRow[]; isOwner: b
       <Card title="How access works">
         <ul className="list-disc space-y-2 py-4 pl-10 pr-5 text-sm text-cocoa">
           <li>Only these two email addresses can open the admin. Every other account is a customer account.</li>
-          <li>Access needs a signed-in account whose email matches and has been confirmed. Changing that account&apos;s email removes access.</li>
-          <li>Only the owner can add or remove the second admin. The second admin can manage the store but not admin access.</li>
+          <li>Access needs a signed-in account whose email matches exactly. It starts automatically once they confirm their email from the link Supabase sends; if no confirmation email was sent, use <strong>Link account</strong>. Changing that account&apos;s email removes access.</li>
+          <li>Both admins can manage everything in the store: products, brands, categories, stock, orders, customers, banners, the 3D hanger and settings.</li>
+          <li>Only the owner can add, link or remove the second admin, and there can never be a third.</li>
           <li>To change the owner email, contact your developer: it can only be changed in the database.</li>
         </ul>
       </Card>

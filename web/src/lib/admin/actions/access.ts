@@ -26,6 +26,19 @@ export async function grantSecondAdmin(email: string) {
   });
 }
 
+/** Links the authorised email to its existing account (for accounts Supabase auto-confirmed). */
+export async function linkSecondAdmin() {
+  return adminAction(async ({ db }) => {
+    const { error } = await db.rpc("admin_link_second");
+    if (error) {
+      if (error.message.includes("NO_ACCOUNT")) return fail("No confirmed account uses this email yet. They need to sign up with exactly this address first.");
+      if (error.message.includes("FORBIDDEN")) return fail("Only the store owner can link an admin account.");
+      return fail(dbMessage(error));
+    }
+    return { ok: true, message: "Account linked. They have full admin access now (they may need to refresh the page)." };
+  });
+}
+
 export async function revokeSecondAdmin() {
   return adminAction(async ({ db }) => {
     const { error } = await db.rpc("admin_revoke_second");

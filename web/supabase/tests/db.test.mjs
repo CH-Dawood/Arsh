@@ -14,7 +14,7 @@ await db.exec(`
   create schema auth; create schema storage; create schema extensions;
   grant usage on schema public, auth, extensions, storage to anon, authenticated, service_role;
   create table auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb default '{}',
-    email_confirmed_at timestamptz default now(), created_at timestamptz default now());
+    email_confirmed_at timestamptz default now(), confirmation_sent_at timestamptz default now(), created_at timestamptz default now());
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
@@ -431,7 +431,23 @@ await fails('second admin cannot remove admins', () => as('authenticated', carol
 await db.query(`update auth.users set email='carol.new@x.pk' where id=$1`, [carol])
 check('changing the account email removes admin access', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false)
 await db.query(`update auth.users set email='carol@x.pk' where id=$1`, [carol])
-check('changing it back relinks the account', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
+check('changing the email back does not relink by itself', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false)
+await fails('second admin cannot link accounts', () => as('authenticated', carol, (tx) => tx.query(`select admin_link_second()`)), 'FORBIDDEN')
+await fails('customer cannot link accounts', () => as('authenticated', alice, (tx) => tx.query(`select admin_link_second()`)), 'FORBIDDEN')
+await asUser(admin, `select admin_link_second()`)
+check('owner links the account again', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
+const ownerOrders = (await as('authenticated', admin, (tx) => tx.query(`select count(*) c from orders`))).rows[0].c
+check('second admin has the same catalogue, order and stock rights as the owner', (await as('authenticated', carol, async (tx) => {
+  const stats = (await tx.query(`select admin_dashboard_stats() s`)).rows[0].s
+  const orders = Number((await tx.query(`select count(*) c from orders`)).rows[0].c)
+  const owner = ownerOrders
+  const v = (await tx.query(`select id from product_variants limit 1`)).rows[0].id
+  await tx.query(`select admin_adjust_stock($1, 'add', 1, 'second admin test')`, [v])
+  const cat = (await tx.query(`insert into categories (name, slug) values ('Second Admin Cat','second-admin-cat') returning id`)).rows[0].id
+  await tx.query(`delete from categories where id=$1`, [cat])
+  await tx.query(`insert into storage.objects (bucket_id, name) values ('catalog','second.webp')`)
+  return stats && orders === Number(owner) && orders > 0
+})))
 await asUser(admin, `select admin_revoke_second()`)
 check('owner can revoke the second admin', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false
   && (await one(`select role from profiles where id=$1`, [carol])).role === 'customer')
@@ -439,7 +455,22 @@ const dave = (await one(`insert into auth.users (email) values ('dave@x.pk') ret
 check('owner authorising an existing confirmed account links it at once',
   (await asUser(admin, `select admin_grant_second('dave@x.pk') linked`)).rows[0].linked === true
   && (await as('authenticated', dave, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
-check('owner keeps access throughout', (await as('authenticated', admin, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
+await asUser(admin, `select admin_revoke_second()`)
+await asUser(admin, `select admin_grant_second('erin@x.pk')`)
+const erin = (await one(`insert into auth.users (email, confirmation_sent_at) values ('erin@x.pk', null) returning id`)).id
+check('an auto-confirmed sign-up (no confirmation email) is not linked automatically', (await as('authenticated', erin, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false)
+check('the owner sees that an account now exists', (await asUser(admin, `select account_exists, linked from admin_access_list() where slot=2`)).rows[0].account_exists === true)
+const mallory = (await one(`insert into auth.users (email) values ('mallory@x.pk') returning id`)).id
+await db.query(`update auth.users set email='erin@x.pk' where id=$1`, [mallory])
+check('changing another account\'s email to the authorised one does not grant admin', (await as('authenticated', mallory, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false)
+await db.query(`update auth.users set email='mallory@x.pk' where id=$1`, [mallory])
+const erin2 = await asUser(admin, `select admin_link_second() ok`)
+check('owner links the auto-confirmed account explicitly', erin2.rows[0].ok === true
+  && (await as('authenticated', erin, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
+const frank = (await one(`insert into auth.users (email, email_confirmed_at) values ('frank@x.pk', null) returning id`)).id
+await fails('a third admin is still refused', () => asUser(admin, `select admin_grant_second('frank@x.pk')`), 'ADMIN_LIMIT')
+check('frank stays a customer', (await as('authenticated', frank, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false)
+check('owner keeps access throughout',(await as('authenticated', admin, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)
