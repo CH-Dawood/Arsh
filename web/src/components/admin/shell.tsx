@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3, Boxes, ExternalLink, FolderTree, GalleryHorizontal, LayoutDashboard, LogOut, Menu, MessageCircle, Package, Settings, Shirt, ShoppingBag, UserRound, Users,
+  BarChart3, Boxes, ExternalLink, FolderTree, GalleryHorizontal, LayoutDashboard, LogOut, Menu, MessageCircle, Package, Settings, ShieldCheck, Shirt, ShoppingBag, Tags, UserRound, Users,
 } from "lucide-react";
 import { Suspense, useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
@@ -15,6 +15,7 @@ const nav = [
   { href: "/admin/orders", label: "Orders", Icon: ShoppingBag },
   { href: "/admin/products", label: "Products", Icon: Package },
   { href: "/admin/categories", label: "Categories", Icon: FolderTree },
+  { href: "/admin/brands", label: "Brands & Labels", Icon: Tags },
   { href: "/admin/banners", label: "Homepage Banners", Icon: GalleryHorizontal },
   { href: "/admin/hanger", label: "3D Hanger", Icon: Shirt },
   { href: "/admin/customers", label: "Customers", Icon: Users },
@@ -22,6 +23,7 @@ const nav = [
   { href: "/admin/notifications", label: "WhatsApp", Icon: MessageCircle },
   { href: "/admin/analytics", label: "Sales & Analytics", Icon: BarChart3 },
   { href: "/admin/settings", label: "Store Settings", Icon: Settings },
+  { href: "/admin/access", label: "Admin Access", Icon: ShieldCheck },
   { href: "/admin/profile", label: "Profile", Icon: UserRound },
 ] as const;
 

@@ -13,7 +13,8 @@ await db.exec(`
   create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
   create schema auth; create schema storage; create schema extensions;
   grant usage on schema public, auth, extensions, storage to anon, authenticated, service_role;
-  create table auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb default '{}');
+  create table auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb default '{}',
+    email_confirmed_at timestamptz default now(), created_at timestamptz default now());
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
@@ -60,7 +61,10 @@ const admin = (await one(`insert into auth.users (email, raw_user_meta_data) val
 const alice = (await one(`insert into auth.users (email, raw_user_meta_data) values ('alice@x.pk', '{"full_name":"Alice","phone":"+92 300 1234567"}') returning id`)).id
 const bob = (await one(`insert into auth.users (email) values ('bob@x.pk') returning id`)).id
 check('profile auto-created with normalized phone', (await one(`select phone from profiles where id=$1`, [alice])).phone === '03001234567')
-await db.query(`update profiles set role='admin' where id=$1`, [admin]) // owner promotes first admin in SQL editor
+// The store owner is added to the allowlist once, in the SQL editor (the migration carries over existing admins).
+await db.query(`insert into admin_access (slot, email, user_id, linked_at) values (1, 'a@x.pk', $1, now())`, [admin])
+await db.query(`select private.sync_admin_roles()`)
+check('owner profile shows admin role', (await one(`select role from profiles where id=$1`, [admin])).role === 'admin')
 
 await fails('customer cannot promote self to admin', () =>
   as('authenticated', alice, (tx) => tx.query(`update profiles set role='admin' where id=$1`, [alice])), 'FORBIDDEN')
@@ -368,6 +372,74 @@ await fails('customer cannot upload catalog images', () => as('authenticated', a
 check('admin can upload catalog images', (await as('authenticated', admin, (tx) =>
   tx.query(`insert into storage.objects (bucket_id, name) values ('catalog','x.webp')`))).affectedRows === 1)
 check('anon cannot list receipts', (await as('anon', null, (tx) => tx.query(`select * from storage.objects where bucket_id='receipts'`))).rows.length === 0)
+
+// --- Brands / labels -------------------------------------------------------
+const demoBrand = (await one(`select id from brands where slug='demo-brand'`)).id
+const brandB = (await one(`insert into brands (name, slug) values ('Summer Collection','summer-collection') returning id`)).id
+await fails('customer cannot add brands', () => as('authenticated', alice, (tx) =>
+  tx.query(`insert into brands (name, slug) values ('X','x')`)), 'row-level security')
+check('customer cannot rename brands', (await as('authenticated', alice, (tx) =>
+  tx.query(`update brands set name='Hacked' where id=$1`, [demoBrand]))).affectedRows === 0)
+await fails('customer cannot delete brands', () => as('authenticated', alice, (tx) => tx.query(`select admin_delete_brand($1, null, true)`, [demoBrand])), 'FORBIDDEN')
+check('anon sees only active brands', await as('authenticated', admin, (tx) => tx.query(`update brands set is_active=false where id=$1`, [brandB]), true).then(() =>
+  as('anon', null, (tx) => tx.query(`select id from brands where id=$1`, [brandB]))).then((r) => r.rows.length === 0))
+await fails('brand in use is not deleted blindly', () => asAdmin(`select admin_delete_brand($1)`, [demoBrand]), 'BRAND_IN_USE')
+await fails('brand in use cannot be removed by a plain delete', () => asAdmin(`delete from brands where id=$1`, [demoBrand]), 'foreign key')
+const brandMove = await as('authenticated', admin, async (tx) => {
+  const before = Number((await tx.query(`select count(*) c from products where brand_id=$1`, [demoBrand])).rows[0].c)
+  const n = (await tx.query(`select admin_delete_brand($1, $2) n`, [demoBrand, brandB])).rows[0].n
+  const after = Number((await tx.query(`select count(*) c from products where brand_id=$1`, [brandB])).rows[0].c)
+  return { before, n, after }
+})
+check('deleting a brand moves its products to the chosen brand', brandMove.before > 0 && brandMove.n === brandMove.before && brandMove.after === brandMove.before)
+const brandClear = await as('authenticated', admin, async (tx) => {
+  const n = (await tx.query(`select admin_delete_brand($1, null, true) n`, [demoBrand])).rows[0].n
+  const left = Number((await tx.query(`select count(*) c from products where brand_id is null`)).rows[0].c)
+  return { n, left }
+})
+check('deleting a brand can clear the label instead', brandClear.n > 0 && brandClear.left > 0)
+
+// --- Admin allowlist (two accounts) ----------------------------------------
+const carol = (await one(`insert into auth.users (email, email_confirmed_at) values ('carol@x.pk', null) returning id`)).id
+const asUser = (uid, q, p) => as('authenticated', uid, (tx) => tx.query(q, p), true)
+check('customer is not admin', (await as('authenticated', alice, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false)
+await fails('customer cannot grant admin', () => as('authenticated', alice, (tx) => tx.query(`select admin_grant_second('alice@x.pk')`)), 'FORBIDDEN')
+await fails('customer cannot write the allowlist directly', () => as('authenticated', alice, (tx) =>
+  tx.query(`insert into admin_access (slot, email, user_id) values (2, 'alice@x.pk', $1)`, [alice])), '') // privilege revoked live; RLS here (the harness re-grants all)
+check('customer cannot read the allowlist', (await as('authenticated', alice, (tx) => tx.query(`select * from admin_access`))).rows.length === 0)
+await fails('admin cannot set roles directly', () => as('authenticated', admin, (tx) => tx.query(`update profiles set role='admin' where id=$1`, [alice])), 'FORBIDDEN')
+check('a role edited in SQL does not grant admin', await (async () => {
+  await db.query(`update profiles set role='admin' where id=$1`, [bob])
+  const r = (await as('authenticated', bob, (tx) => tx.query(`select is_admin() a`))).rows[0].a
+  await db.query(`select private.sync_admin_roles()`)
+  return r === false && (await one(`select role from profiles where id=$1`, [bob])).role === 'customer'
+})())
+await fails('owner cannot add an invalid email', () => asUser(admin, `select admin_grant_second('not-an-email')`), 'INVALID_EMAIL')
+await fails('owner cannot add themselves again', () => asUser(admin, `select admin_grant_second('A@x.pk')`), 'ALREADY_ADMIN')
+check('owner authorises an email with an unconfirmed account (not linked yet)',
+  (await asUser(admin, `select admin_grant_second(' Carol@X.pk ') linked`)).rows[0].linked === false)
+check('unconfirmed account is not admin', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false)
+await fails('owner cannot add a third admin', () => asUser(admin, `select admin_grant_second('bob@x.pk')`), 'ADMIN_LIMIT')
+await fails('allowlist holds at most two rows', () => db.query(`insert into admin_access (slot, email) values (3, 'z@x.pk')`), 'check')
+await db.query(`update auth.users set email_confirmed_at=now() where id=$1`, [carol])
+check('second admin gets access once their email is confirmed', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
+check('second admin profile shows admin role', (await one(`select role from profiles where id=$1`, [carol])).role === 'admin')
+check('second admin can manage the catalogue', (await as('authenticated', carol, (tx) => tx.query(`update brands set name='Summer Edit' where id=$1`, [brandB]))).affectedRows === 1)
+check('second admin can see the allowlist', (await as('authenticated', carol, (tx) => tx.query(`select * from admin_access_list()`))).rows.length === 2)
+await fails('second admin cannot add another admin', () => as('authenticated', carol, (tx) => tx.query(`select admin_grant_second('bob@x.pk')`)), 'FORBIDDEN')
+await fails('second admin cannot remove admins', () => as('authenticated', carol, (tx) => tx.query(`select admin_revoke_second()`)), 'FORBIDDEN')
+await db.query(`update auth.users set email='carol.new@x.pk' where id=$1`, [carol])
+check('changing the account email removes admin access', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false)
+await db.query(`update auth.users set email='carol@x.pk' where id=$1`, [carol])
+check('changing it back relinks the account', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
+await asUser(admin, `select admin_revoke_second()`)
+check('owner can revoke the second admin', (await as('authenticated', carol, (tx) => tx.query(`select is_admin() a`))).rows[0].a === false
+  && (await one(`select role from profiles where id=$1`, [carol])).role === 'customer')
+const dave = (await one(`insert into auth.users (email) values ('dave@x.pk') returning id`)).id
+check('owner authorising an existing confirmed account links it at once',
+  (await asUser(admin, `select admin_grant_second('dave@x.pk') linked`)).rows[0].linked === true
+  && (await as('authenticated', dave, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
+check('owner keeps access throughout', (await as('authenticated', admin, (tx) => tx.query(`select is_admin() a`))).rows[0].a === true)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

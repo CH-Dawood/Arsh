@@ -9,7 +9,8 @@ export const fail = (message: string, errors?: Record<string, string>): ActionRe
 
 /**
  * Server-side admin check for actions and route handlers. Never trusts the browser:
- * verifies the session JWT, then asks the database (profiles.role) via is_admin().
+ * verifies the session JWT, then asks the database (the two-account admin_access allowlist,
+ * linked to a confirmed email) via is_admin().
  */
 export async function getAdmin() {
   const db = await createClient();

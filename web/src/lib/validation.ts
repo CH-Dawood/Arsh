@@ -50,17 +50,27 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Enter your password.").max(128),
 });
 
+const newPassword = z
+  .string()
+  .min(10, "Use at least 10 characters.")
+  .max(128)
+  .regex(/[a-z]/, "Include a lowercase letter.")
+  .regex(/[A-Z]/, "Include an uppercase letter.")
+  .regex(/\d/, "Include a number.");
+
 export const registerSchema = z.object({
   full_name: z.string().trim().min(2, "Please enter your name.").max(120),
   email: z.email("Enter a valid email address.").max(254),
-  password: z
-    .string()
-    .min(10, "Use at least 10 characters.")
-    .max(128)
-    .regex(/[a-z]/, "Include a lowercase letter.")
-    .regex(/[A-Z]/, "Include an uppercase letter.")
-    .regex(/\d/, "Include a number."),
+  password: newPassword,
 });
+
+export const forgotPasswordSchema = z.object({
+  email: z.email("Enter a valid email address.").max(254),
+});
+
+export const resetPasswordSchema = z
+  .object({ password: newPassword, confirm: z.string().max(128) })
+  .refine((v) => v.password === v.confirm, { message: "The passwords don't match.", path: ["confirm"] });
 
 /** Flattens Zod issues into { field: firstMessage } for inline form errors. */
 export function fieldErrors(error: z.ZodError) {

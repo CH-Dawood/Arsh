@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -63,6 +63,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      admin_access: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          email: string
+          linked_at: string | null
+          slot: number
+          user_id: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          email: string
+          linked_at?: string | null
+          slot: number
+          user_id?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          email?: string
+          linked_at?: string | null
+          slot?: number
+          user_id?: string | null
+        }
+        Relationships: []
       }
       admin_audit_log: {
         Row: {
@@ -1571,6 +1598,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_access_list: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          is_owner: boolean
+          linked: boolean
+          linked_at: string
+          slot: number
+        }[]
+      }
       admin_adjust_stock: {
         Args: {
           p_mode: string
@@ -1595,10 +1633,16 @@ export type Database = {
         }[]
       }
       admin_dashboard_stats: { Args: never; Returns: Json }
+      admin_delete_brand: {
+        Args: { p_clear?: boolean; p_id: string; p_move_to?: string }
+        Returns: number
+      }
       admin_delete_category: {
         Args: { p_id: string; p_move_to?: string }
         Returns: number
       }
+      admin_grant_second: { Args: { p_email: string }; Returns: boolean }
+      admin_revoke_second: { Args: never; Returns: undefined }
       admin_sales_report: {
         Args: { p_from: string; p_granularity?: string; p_to: string }
         Returns: Json

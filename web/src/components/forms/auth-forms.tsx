@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage } from "@/components/ui/field";
-import { login, register } from "@/lib/actions/auth";
+import { login, register, requestPasswordReset, updatePassword } from "@/lib/actions/auth";
 import { useFormAction } from "@/lib/use-form-action";
 
 export function LoginForm({ next }: { next?: string }) {
@@ -14,9 +14,37 @@ export function LoginForm({ next }: { next?: string }) {
       <input type="hidden" name="next" value={next ?? "/account"} />
       <Field label="Email" name="email" type="email" autoComplete="email" required error={e.email} />
       <Field label="Password" name="password" type="password" autoComplete="current-password" required error={e.password} />
+      <p className="-mt-2 text-right text-sm"><Link href="/forgot-password" className="text-cocoa underline underline-offset-4 hover:text-espresso">Forgot password?</Link></p>
       <FormMessage state={state} />
       <Button type="submit" size="lg" className="w-full" disabled={pending}>{pending ? "Signing in…" : "Sign in"}</Button>
       <p className="text-center text-sm text-cocoa">New here? <Link href="/register" className="text-espresso underline underline-offset-4">Create an account</Link></p>
+    </form>
+  );
+}
+
+export function ForgotPasswordForm() {
+  const [state, onSubmit, pending] = useFormAction(requestPasswordReset, null);
+  const e = state?.errors ?? {};
+  if (state?.ok) return <FormMessage state={state} />;
+  return (
+    <form onSubmit={onSubmit} noValidate className="space-y-5">
+      <Field label="Email" name="email" type="email" autoComplete="email" required error={e.email} />
+      <FormMessage state={state} />
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>{pending ? "Sending…" : "Send reset link"}</Button>
+      <p className="text-center text-sm text-cocoa">Remembered it? <Link href="/login" className="text-espresso underline underline-offset-4">Sign in</Link></p>
+    </form>
+  );
+}
+
+export function ResetPasswordForm() {
+  const [state, onSubmit, pending] = useFormAction(updatePassword, null);
+  const e = state?.errors ?? {};
+  return (
+    <form onSubmit={onSubmit} noValidate className="space-y-5">
+      <Field label="New password" name="password" type="password" autoComplete="new-password" required error={e.password} hint="At least 10 characters with upper- and lowercase letters and a number." />
+      <Field label="Confirm new password" name="confirm" type="password" autoComplete="new-password" required error={e.confirm} />
+      <FormMessage state={state} />
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>{pending ? "Saving…" : "Save new password"}</Button>
     </form>
   );
 }
