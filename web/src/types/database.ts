@@ -366,6 +366,7 @@ export type Database = {
       content_pages: {
         Row: {
           body: string
+          is_published: boolean
           seo_description: string | null
           slug: string
           title: string
@@ -373,6 +374,7 @@ export type Database = {
         }
         Insert: {
           body?: string
+          is_published?: boolean
           seo_description?: string | null
           slug: string
           title: string
@@ -380,6 +382,7 @@ export type Database = {
         }
         Update: {
           body?: string
+          is_published?: boolean
           seo_description?: string | null
           slug?: string
           title?: string

@@ -399,6 +399,39 @@ const brandClear = await as('authenticated', admin, async (tx) => {
 })
 check('deleting a brand can clear the label instead', brandClear.n > 0 && brandClear.left > 0)
 
+// --- Policies & FAQs ---------------------------------------------------------
+const richJson = JSON.stringify({ type: 'doc', content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Returns' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Within 7 days.' }] }] })
+check('admin saves a policy with rich content', (await as('authenticated', admin, (tx) =>
+  tx.query(`update content_pages set body=$1, title='Refund & Return Policy' where slug='refund-policy'`, [richJson]))).affectedRows === 1)
+check('customer cannot edit policies', (await as('authenticated', alice, (tx) =>
+  tx.query(`update content_pages set body='hacked' where slug='privacy-policy'`))).affectedRows === 0)
+check('anon cannot edit policies', (await as('anon', null, (tx) =>
+  tx.query(`update content_pages set body='hacked' where slug='privacy-policy'`))).affectedRows === 0)
+await fails('customer cannot add policy pages', () => as('authenticated', alice, (tx) =>
+  tx.query(`insert into content_pages (slug, title) values ('fake-policy','Fake')`)), 'row-level security')
+const unpublished = await as('authenticated', admin, async (tx) => {
+  await tx.query(`update content_pages set is_published=false where slug='terms'`)
+  return true
+}, true)
+check('unpublished policy is hidden from visitors', unpublished && (await as('anon', null, (tx) => tx.query(`select 1 from content_pages where slug='terms'`))).rows.length === 0)
+check('admins still see unpublished policies', (await as('authenticated', admin, (tx) => tx.query(`select 1 from content_pages where slug='terms'`))).rows.length === 1)
+await db.query(`update content_pages set is_published=true where slug='terms'`)
+check('a long formatted policy fits', (await as('authenticated', admin, (tx) =>
+  tx.query(`update content_pages set body=$1 where slug='shipping-policy'`, ['x'.repeat(150000)]))).affectedRows === 1)
+const faqA = (await asAdmin(`insert into faq_items (question, answer, sort_order) values ('How long does delivery take?', $1, 10) returning id`, [richJson])).rows[0].id
+const faqB = (await asAdmin(`insert into faq_items (question, answer, sort_order, is_active) values ('Hidden question here?', 'Hidden answer', 20, false) returning id`)).rows[0].id
+check('visitors see only active FAQs', (await as('anon', null, (tx) => tx.query(`select id from faq_items`))).rows.map((r) => r.id).join() === faqA)
+check('customer cannot edit FAQs', (await as('authenticated', alice, (tx) => tx.query(`update faq_items set question='Hacked question' where id=$1`, [faqA]))).affectedRows === 0)
+check('customer cannot delete FAQs', (await as('authenticated', alice, (tx) => tx.query(`delete from faq_items where id=$1`, [faqA]))).affectedRows === 0)
+await fails('customer cannot add FAQs', () => as('authenticated', alice, (tx) =>
+  tx.query(`insert into faq_items (question, answer) values ('Spam question?', 'Spam')`)), 'row-level security')
+check('admin reorders and deletes FAQs', (await as('authenticated', admin, async (tx) => {
+  await tx.query(`update faq_items set sort_order=5 where id=$1`, [faqB])
+  const first = (await tx.query(`select id from faq_items order by sort_order limit 1`)).rows[0].id
+  const del = (await tx.query(`delete from faq_items where id=$1`, [faqB])).affectedRows
+  return first === faqB && del === 1
+})))
+
 // --- Admin allowlist (two accounts) ----------------------------------------
 const carol = (await one(`insert into auth.users (email, email_confirmed_at) values ('carol@x.pk', null) returning id`)).id
 const asUser = (uid, q, p) => as('authenticated', uid, (tx) => tx.query(q, p), true)

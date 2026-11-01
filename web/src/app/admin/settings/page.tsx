@@ -1,4 +1,5 @@
 import { SettingsForm } from "@/components/admin/settings-form";
+import { SettingsTabs } from "@/components/admin/settings-tabs";
 import { Suspense } from "react";
 import { AdminPageHeader, EmptyState, Skeleton } from "@/components/admin/ui";
 import { requireAdmin } from "@/lib/auth";
@@ -10,6 +11,7 @@ export default function SettingsPage() {
   return (
     <>
       <AdminPageHeader title="Store Settings" description="Everything here updates the website as soon as you save." />
+      <SettingsTabs active="general" />
       <Suspense fallback={<Skeleton className="h-[40rem]" />}>
         <Settings />
       </Suspense>

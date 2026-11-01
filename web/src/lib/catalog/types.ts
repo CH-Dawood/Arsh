@@ -144,7 +144,9 @@ export interface StoreSettings {
 export interface ContentPage {
   slug: string;
   title: string;
+  /** Editor JSON (policies) or plain text (older pages). */
   body: string;
+  updatedAt?: string;
 }
 
 export interface Faq {

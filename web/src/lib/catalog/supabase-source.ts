@@ -249,13 +249,14 @@ export const supabaseSource: CatalogSource = {
   },
 
   async contentPage(slug) {
-    const { data, error } = await db().from("content_pages").select("slug, title, body").eq("slug", slug).maybeSingle();
+    // Unpublished pages are hidden by RLS (and explicitly here), so visitors get null.
+    const { data, error } = await db().from("content_pages").select("slug, title, body, updated_at").eq("slug", slug).eq("is_published", true).maybeSingle();
     fail(error);
-    return data;
+    return data ? { slug: data.slug, title: data.title, body: data.body, updatedAt: data.updated_at } : null;
   },
 
   async faqs() {
-    const { data, error } = await db().from("faq_items").select("id, question, answer").order("sort_order");
+    const { data, error } = await db().from("faq_items").select("id, question, answer").eq("is_active", true).order("sort_order").order("created_at");
     fail(error);
     return data ?? [];
   },

@@ -117,6 +117,20 @@
   text-transform: uppercase;
 }
 
+/* Admin rich-text editor (policies, FAQ answers): mirrors the public page typography. */
+@layer components {
+  .rich-editor > * + * { margin-top: 0.75rem; }
+  .rich-editor h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 500; line-height: 1.2; padding-top: 0.5rem; }
+  .rich-editor h3 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 500; line-height: 1.25; }
+  .rich-editor ul { list-style: disc; padding-left: 1.25rem; }
+  .rich-editor ol { list-style: decimal; padding-left: 1.25rem; }
+  .rich-editor li + li { margin-top: 0.25rem; }
+  .rich-editor blockquote { border-left: 2px solid var(--color-gold); padding-left: 1rem; font-style: italic; }
+  .rich-editor a { text-decoration: underline; text-underline-offset: 4px; color: var(--color-gold-deep); }
+  .rich-editor strong { font-weight: 600; }
+  .rich-editor hr { border-color: var(--color-hairline); }
+}
+
 @utility container-page {
   width: 100%;
   margin-inline: auto;

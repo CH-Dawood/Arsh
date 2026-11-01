@@ -16,6 +16,9 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
     "clsx": "^2.1.1",
     "lucide-react": "^1.65.0",
     "motion": "^14.8.0",
