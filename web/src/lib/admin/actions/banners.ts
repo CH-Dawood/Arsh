@@ -3,6 +3,7 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { removeUnusedFiles } from "@/lib/admin/storage";
 
 const optText = (max: number) => z.string().trim().max(max).optional().transform((v) => v || null);
 const link = z.string().trim().max(500).optional().transform((v) => v || null)
@@ -36,9 +37,11 @@ export async function saveBanner(input: BannerInput) {
     if (row.cta_label && !row.cta_href) return fail("Add a link for the button, or clear the button text.", { cta_href: "Required with button text" });
     const values = { ...row, alt: alt || row.heading };
     if (id) {
+      const { data: before } = await db.from("banners").select("image_path, mobile_image_path").eq("id", id).maybeSingle();
       const { error, count } = await db.from("banners").update(values, { count: "exact" }).eq("id", id);
       if (error) return fail(dbMessage(error));
       if (!count) return fail(GONE);
+      await removeUnusedFiles(db, [before?.image_path, before?.mobile_image_path]);
       expire();
       return { ok: true, message: "Banner saved.", data: { id } };
     }
@@ -68,14 +71,8 @@ export async function deleteBanner(id: string) {
     const { error, count } = await db.from("banners").delete({ count: "exact" }).eq("id", id);
     if (error) return fail(dbMessage(error));
     if (!count) return fail("That banner no longer exists.");
-    // Uploaded files are removed unless another banner still uses them.
-    const paths = [row?.image_path, row?.mobile_image_path].filter((p): p is string => Boolean(p && !p.startsWith("https://")));
-    if (paths.length) {
-      const { data: shared } = await db.from("banners").select("image_path, mobile_image_path").or(paths.map((p) => `image_path.eq."${p}",mobile_image_path.eq."${p}"`).join(","));
-      const inUse = new Set((shared ?? []).flatMap((b) => [b.image_path, b.mobile_image_path]));
-      const unused = paths.filter((p) => !inUse.has(p));
-      if (unused.length) await db.storage.from("catalog").remove(unused);
-    }
+    // Uploaded files are removed unless something else still uses them.
+    await removeUnusedFiles(db, [row?.image_path, row?.mobile_image_path]);
     expire();
     return { ok: true, message: "Banner deleted." };
   });
@@ -85,11 +82,8 @@ export async function deleteBanner(id: string) {
 export async function reorderBanners(ids: string[]) {
   return adminAction(async ({ db }) => {
     if (!z.array(z.uuid()).max(50).safeParse(ids).success) return fail("Unknown banners.");
-    for (const [n, id] of ids.entries()) {
-      const { error, count } = await db.from("banners").update({ sort_order: (n + 1) * 10 }, { count: "exact" }).eq("id", id);
-      if (error) return fail(dbMessage(error));
-      if (!count) return fail(GONE);
-    }
+    const { error } = await db.rpc("admin_set_order", { p_table: "banners", p_ids: ids });
+    if (error) return fail(dbMessage(error));
     expire();
     return { ok: true, message: "Banner order saved." };
   });

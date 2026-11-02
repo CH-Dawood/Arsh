@@ -5,13 +5,13 @@ import { requireAdmin } from "@/lib/auth";
 export async function productFormOptions() {
   const { supabase } = await requireAdmin();
   const [categories, brands, sizes, colors] = await Promise.all([
-    supabase.from("categories").select("id, name").order("sort_order").order("name"),
+    supabase.from("categories").select("id, name, is_active").order("sort_order").order("name"),
     supabase.from("brands").select("id, name, is_active").order("sort_order").order("name"),
     supabase.from("sizes").select("id, code, label").order("sort_order"),
     supabase.from("colors").select("id, name").order("name"),
   ]);
   return {
-    categories: categories.data ?? [],
+    categories: (categories.data ?? []).map((c) => ({ id: c.id, name: c.is_active ? c.name : `${c.name} (hidden)`, hidden: !c.is_active })),
     brands: (brands.data ?? []).map((b) => ({ id: b.id, name: b.is_active ? b.name : `${b.name} (disabled)` })),
     sizes: (sizes.data ?? []).map((s) => ({ id: s.id, code: s.code, name: s.label })),
     colors: colors.data ?? [],

@@ -3,6 +3,7 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { removeUnusedFiles } from "@/lib/admin/storage";
 import { imageUrl } from "@/lib/catalog/supabase-source";
 
 const slug = z.string().trim().min(2).max(120).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters, numbers and dashes for the URL name.");
@@ -56,6 +57,7 @@ export async function saveProduct(input: ProductInput) {
     const combos = new Set(p.variants.map((v) => `${v.size_id}:${v.color_id || ""}`));
     if (combos.size !== p.variants.length) return fail("Each size and colour combination can only appear once.");
 
+    const { data: before } = p.id ? await db.from("product_images").select("storage_path").eq("product_id", p.id) : { data: null };
     const { data, error } = await db.rpc("admin_save_product", {
       p_product: {
         id: p.id ?? null, name: p.name, slug: p.slug, category_id: p.category_id, brand_id: p.brand_id || null,
@@ -71,6 +73,9 @@ export async function saveProduct(input: ProductInput) {
       p_variants: p.variants.map((v) => ({ id: v.id ?? null, size_id: v.size_id, color_id: v.color_id || null, sku: v.sku, stock: v.stock, is_active: v.is_active })),
     });
     if (error) return fail(dbMessage(error));
+    // Photos removed from the product, unless something else still shows them.
+    const kept = new Set(p.images.map((i) => i.storage_path));
+    await removeUnusedFiles(db, (before ?? []).map((i) => i.storage_path).filter((path) => !kept.has(path)));
     // The hanger refers to products by slug, so a rename or hide must refresh it too.
     ["products", "collections", "hanger"].forEach((t) => updateTag(t));
     return { ok: true, message: p.id ? "Product saved." : "Product created.", data: { id: data as string } };
@@ -101,14 +106,7 @@ export async function deleteProduct(id: string) {
     if (!count) return fail("That product no longer exists.");
     // Past orders keep their own copy of the name, price and photo path, so a photo an order still
     // shows is kept; any other uploaded file of this product is removed.
-    const uploaded = [...(images ?? []).map((i) => i.storage_path), ...(hanger ?? []).flatMap((h) => [h.image_path, h.back_image_path])]
-      .filter((p): p is string => Boolean(p && !p.startsWith("https://")));
-    if (uploaded.length) {
-      const { data: ordered } = await db.from("order_items").select("image_path").in("image_path", uploaded);
-      const keep = new Set((ordered ?? []).map((o) => o.image_path));
-      const unused = [...new Set(uploaded)].filter((p) => !keep.has(p));
-      if (unused.length) await db.storage.from("catalog").remove(unused);
-    }
+    await removeUnusedFiles(db, [...(images ?? []).map((i) => i.storage_path), ...(hanger ?? []).flatMap((h) => [h.image_path, h.back_image_path])]);
     ["products", "collections", "hanger"].forEach((t) => updateTag(t));
     return { ok: true, message: "Product deleted. Past orders keep their details." };
   });

@@ -3,7 +3,7 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
-import { isPolicySlug } from "@/lib/policies";
+import { isEditableSlug } from "@/lib/policies";
 import { cleanDoc, docText } from "@/lib/rich-doc";
 
 const MAX_POLICY = 200_000;
@@ -33,7 +33,7 @@ export async function savePolicy(input: z.input<typeof policyInput>) {
     const parsed = policyInput.safeParse(input);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form.");
     const { slug, title, is_published, body } = parsed.data;
-    if (!isPolicySlug(slug)) return fail("Unknown policy page.");
+    if (!isEditableSlug(slug)) return fail("Unknown page.");
     const doc = storedDoc(body, MAX_POLICY);
     if (doc.tooLong) return fail("This policy is too long to save. Try splitting very long sections.");
 
@@ -43,7 +43,7 @@ export async function savePolicy(input: z.input<typeof policyInput>) {
       .single();
     if (error || !data) return fail(dbMessage(error));
     updateTag(`content:${slug}`);
-    return { ok: true, message: is_published ? "Policy saved and live on the website." : "Policy saved as a draft (hidden from the website).", data: { updatedAt: data.updated_at } };
+    return { ok: true, message: is_published ? "Saved and live on the website." : "Saved as a draft (hidden from the website).", data: { updatedAt: data.updated_at } };
   });
 }
 
@@ -104,12 +104,9 @@ export async function deleteFaq(id: string) {
 /** Saves the full display order (ids top to bottom). */
 export async function reorderFaqs(ids: string[]) {
   return adminAction(async ({ db }) => {
-    if (!z.array(z.uuid()).max(500).safeParse(ids).success || new Set(ids).size !== ids.length) return fail("Couldn't read the new order.");
-    for (const [i, id] of ids.entries()) {
-      const { error, count } = await db.from("faq_items").update({ sort_order: (i + 1) * 10 }, { count: "exact" }).eq("id", id);
-      if (error) return fail(dbMessage(error));
-      if (!count) return fail(GONE);
-    }
+    if (!z.array(z.uuid()).max(500).safeParse(ids).success) return fail("Couldn't read the new order.");
+    const { error } = await db.rpc("admin_set_order", { p_table: "faq_items", p_ids: ids });
+    if (error) return fail(dbMessage(error));
     expireFaqs();
     return { ok: true, message: "FAQ order saved." };
   });

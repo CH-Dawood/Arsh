@@ -17,6 +17,7 @@ export function CartView({ freeShippingThreshold, shippingFee }: { freeShippingT
   if (!lines.length) {
     return (
       <div className="flex flex-col items-center gap-5 py-20 text-center">
+        <CartNotice />
         <ShoppingBag className="size-12 text-taupe" strokeWidth={1} aria-hidden />
         <p className="font-display text-3xl">Your bag is empty</p>
         <ButtonLink href="/shop">Continue shopping</ButtonLink>

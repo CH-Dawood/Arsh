@@ -27,7 +27,7 @@ async function Hanger() {
     supabase.from("hanger_settings").select("*, featured:hanger_items(product_id)").eq("id", 1).single(),
     supabase.from("hanger_items").select("product_id, image_path, back_image_path, title, description, is_active").order("sort_order"),
     supabase.from("products")
-      .select("id, name, slug, base_price, short_description, is_active, images:product_images(storage_path, sort_order), variants:product_variants(stock, is_active)")
+      .select("id, name, slug, base_price, short_description, is_active, category:categories(is_active), images:product_images(storage_path, sort_order), variants:product_variants(stock, is_active)")
       .order("name").limit(1000),
     automaticRailProductIds(),
   ]);
@@ -35,6 +35,7 @@ async function Hanger() {
 
   const catalog: HangerProduct[] = (products ?? []).map((p) => ({
     id: p.id, name: p.name, slug: p.slug, price: p.base_price, description: p.short_description ?? "", isActive: p.is_active,
+    categoryHidden: (p.category as { is_active: boolean } | null)?.is_active === false,
     inStock: p.variants.some((v) => v.is_active && v.stock > 0),
     images: [...p.images].sort((a, b) => a.sort_order - b.sort_order).map((i) => ({ path: i.storage_path, url: imageUrl(i.storage_path) })),
   }));

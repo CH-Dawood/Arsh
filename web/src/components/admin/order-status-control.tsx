@@ -102,7 +102,7 @@ export function OrderStatusControl({ order }: {
             <TextArea id="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
           </FieldRow>
 
-          <AdminButton disabled={pending || (!changed && !shippingChanged)} onClick={() => (status === "cancelled" ? setConfirming(true) : submit())}>
+          <AdminButton disabled={pending || (!changed && !shippingChanged)} onClick={() => (status === "cancelled" || status === "delivered" ? setConfirming(true) : submit())}>
             {pending ? "Updating…" : "Update status"}
           </AdminButton>
         </div>
@@ -110,14 +110,16 @@ export function OrderStatusControl({ order }: {
 
       <ConfirmDialog
         open={confirming}
-        title="Cancel this order?"
-        destructive
-        confirmLabel="Cancel order"
+        title={status === "delivered" ? "Mark this order as delivered?" : "Cancel this order?"}
+        destructive={status !== "delivered"}
+        confirmLabel={status === "delivered" ? "Mark as delivered" : "Cancel order"}
         pending={pending}
         onConfirm={submit}
         onCancel={() => setConfirming(false)}
       >
-        The items go back into stock and any discount code use is released. Cancelled orders can&apos;t be reopened.
+        {status === "delivered"
+          ? "After this, the order can only be marked as returned. Its status can't move back."
+          : "The items go back into stock and any discount code use is released. Cancelled orders can't be reopened."}
       </ConfirmDialog>
     </div>
   );

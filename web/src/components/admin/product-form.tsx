@@ -10,7 +10,7 @@ import { cn } from "@/lib/format";
 import { ConfirmDialog, Toggle } from "./client";
 import { AdminButton, Card, FieldRow, SelectInput, TextArea, TextInput } from "./ui";
 
-type Option = { id: string; name: string };
+type Option = { id: string; name: string; hidden?: boolean };
 type Img = { id?: string; storage_path: string; url: string; alt: string };
 type Variant = { key: string; id?: string; size_id: string; color_id: string; sku: string; stock: number; is_active: boolean };
 
@@ -120,6 +120,9 @@ export function ProductForm({ initial, categories, brands, sizes, colors }: {
                   <option value="">Choose…</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </SelectInput>
+                {categories.find((c) => c.id === v.category_id)?.hidden && (
+                  <p role="alert" className="mt-1 text-xs text-danger">This category is hidden, so this product won&apos;t appear in the store or be available at checkout until the category is shown.</p>
+                )}
               </FieldRow>
               <FieldRow label="Brand / label" htmlFor="p-brand">
                 <SelectInput id="p-brand" value={v.brand_id} onChange={(e) => set("brand_id", e.target.value)}>

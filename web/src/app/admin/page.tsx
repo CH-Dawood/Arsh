@@ -41,9 +41,11 @@ export default function AdminOverview() {
 
 async function Overview() {
   const { supabase } = await requireAdmin();
-  const [{ data, error }, { count: newMessages }] = await Promise.all([
+  const [{ data, error }, { count: newMessages }, { count: inStore }] = await Promise.all([
     supabase.rpc("admin_dashboard_stats"),
     supabase.from("contact_messages").select("id", { count: "exact", head: true }).eq("is_handled", false),
+    // Visible means the product and its category are both shown.
+    supabase.from("products").select("id, category:categories!inner(is_active)", { count: "exact", head: true }).eq("is_active", true).eq("category.is_active", true),
   ]);
   if (error || !data) return <EmptyState title="Couldn't load the dashboard">Check your connection and refresh the page.</EmptyState>;
   const s = data as unknown as Stats;
@@ -76,7 +78,7 @@ async function Overview() {
 
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Customers" value={s.total_customers} href="/admin/customers" />
-        <StatCard label="Products" value={s.total_products} hint={`${s.active_products} visible in store`} href="/admin/products" />
+        <StatCard label="Products" value={s.total_products} hint={`${inStore ?? s.active_products} visible in store`} href="/admin/products" />
         <StatCard label="Low stock" value={s.low_stock} hint={`${s.low_stock_threshold} or fewer left`} tone="#b7791f" href="/admin/inventory?filter=low" />
         <StatCard label="Out of stock" value={s.out_of_stock} hint="Sizes with 0 left" tone="#9b2c2c" href="/admin/inventory?filter=out" />
       </div>

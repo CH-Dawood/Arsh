@@ -3,6 +3,7 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { removeUnusedFiles } from "@/lib/admin/storage";
 
 const optText = (max: number) => z.string().trim().max(max).optional().transform((v) => v || null);
 const path = z.string().trim().max(500).optional().transform((v) => v || null);
@@ -49,11 +50,8 @@ export async function saveHanger(input: HangerInput) {
       p_items: items,
     });
     if (error) return fail(dbMessage(error));
-    // Photos uploaded just for the hanger that no piece uses any more are removed from storage.
-    const inUse = new Set(items.flatMap((i) => [i.image_path, i.back_image_path]));
-    const unused = [...new Set((before ?? []).flatMap((b) => [b.image_path, b.back_image_path]))]
-      .filter((p): p is string => Boolean(p?.startsWith("hanger/")) && !inUse.has(p));
-    if (unused.length) await db.storage.from("catalog").remove(unused);
+    // Photos no piece uses any more are removed, unless something else still shows them.
+    await removeUnusedFiles(db, (before ?? []).flatMap((b) => [b.image_path, b.back_image_path]));
     updateTag("hanger");
     return { ok: true, message: "Published. The homepage hanger now shows these changes." };
   });

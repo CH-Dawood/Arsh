@@ -48,9 +48,9 @@ export const paymentStatusLabel: Record<PaymentStatus, string> = {
 export function allowedStatuses(from: OrderStatus): OrderStatus[] {
   const active = ORDER_STEPS as readonly OrderStatus[];
   if (from === "cancelled" || from === "returned") return [];
-  const next: OrderStatus[] = active.filter((s) => s !== from);
-  if (from !== "delivered") next.push("cancelled");
-  if (from === "shipped" || from === "delivered") next.push("returned");
+  if (from === "delivered") return ["returned"];
+  const next: OrderStatus[] = [...active.filter((s) => s !== from), "cancelled"];
+  if (from === "shipped") next.push("returned");
   return next;
 }
 

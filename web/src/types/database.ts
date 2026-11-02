@@ -1660,6 +1660,10 @@ export type Database = {
         Args: { p_images: Json; p_product: Json; p_variants: Json }
         Returns: string
       }
+      admin_set_order: {
+        Args: { p_ids: string[]; p_table: string }
+        Returns: undefined
+      }
       admin_set_payment_status: {
         Args: {
           p_note?: string

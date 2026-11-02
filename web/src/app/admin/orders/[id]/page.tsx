@@ -128,6 +128,7 @@ async function OrderDetail({ params }: Pick<PageProps<"/admin/orders/[id]">, "pa
         <div className="space-y-6">
           <Card title="Update status">
             <OrderStatusControl
+              key={`${o.status}-${o.payment_status}`}
               order={{
                 id: o.id, status: o.status as OrderStatus, payment_method: o.payment_method, payment_status: o.payment_status as PaymentStatus,
                 courier: o.courier, tracking_number: o.tracking_number, tracking_url: o.tracking_url,
@@ -149,7 +150,7 @@ async function OrderDetail({ params }: Pick<PageProps<"/admin/orders/[id]">, "pa
           <Card title="Payment">
             <div className="space-y-4 px-5 py-4 text-sm">
               <p>{paymentMethodLabel[o.payment_method] ?? o.payment_method}</p>
-              <PaymentStatusControl orderId={o.id} status={o.payment_status as PaymentStatus} />
+              <PaymentStatusControl key={o.payment_status} orderId={o.id} status={o.payment_status as PaymentStatus} />
             </div>
           </Card>
 

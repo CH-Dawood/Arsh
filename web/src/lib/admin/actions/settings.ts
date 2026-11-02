@@ -3,6 +3,7 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { removeUnusedFiles } from "@/lib/admin/storage";
 import { toWhatsAppNumber } from "@/lib/whatsapp";
 
 const opt = (max: number) => z.string().trim().max(max).optional().transform((v) => v || null);
@@ -57,9 +58,11 @@ export async function saveSettings(input: SettingsInput) {
       return fail("Turn on at least one payment method, or close the store.");
     }
 
+    const { data: before } = await db.from("store_settings").select("logo_path").eq("id", 1).maybeSingle();
     const { error, count } = await db.from("store_settings").update({ ...s, whatsapp_number: whatsapp }, { count: "exact" }).eq("id", 1);
     if (error) return fail(dbMessage(error));
     if (!count) return fail(GONE);
+    await removeUnusedFiles(db, [before?.logo_path]);
     updateTag("settings");
     return { ok: true, message: "Settings saved. The website now uses the new values." };
   });

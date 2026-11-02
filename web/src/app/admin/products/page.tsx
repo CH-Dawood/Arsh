@@ -46,7 +46,7 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<SP> }) {
 
   let query = supabase
     .from("products")
-    .select("id, name, slug, base_price, compare_at_price, is_active, is_featured, is_new_arrival, is_best_seller, is_luxury, created_at, category:categories(name), images:product_images(storage_path, sort_order), variants:product_variants(stock, is_active)", { count: "exact" });
+    .select("id, name, slug, base_price, compare_at_price, is_active, is_featured, is_new_arrival, is_best_seller, is_luxury, created_at, category:categories(name, is_active), images:product_images(storage_path, sort_order), variants:product_variants(stock, is_active)", { count: "exact" });
   if (q) query = query.or(`name.ilike.%${q}%,slug.ilike.%${q}%`);
   if (cat) query = query.eq("category_id", cat.id);
   if (visibility) query = query.eq("is_active", visibility === "visible");
@@ -122,6 +122,7 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<SP> }) {
                   const cover = [...p.images].sort((a, b) => a.sort_order - b.sort_order)[0];
                   const stock = p.variants.filter((x) => x.is_active).reduce((n, x) => n + x.stock, 0);
                   const lowSizes = p.variants.filter((x) => x.is_active && x.stock <= low).length;
+                  const category = p.category as { name: string; is_active: boolean } | null;
                   const labels = [p.is_featured && "Featured", p.is_new_arrival && "New", p.is_best_seller && "Best seller", p.is_luxury && "Luxury"].filter(Boolean);
                   return (
                     <tr key={p.id} className="hover:bg-linen/60">
@@ -133,7 +134,10 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<SP> }) {
                           <span className="font-medium hover:underline">{p.name}</span>
                         </Link>
                       </td>
-                      <td className="text-cocoa">{(p.category as { name: string } | null)?.name}</td>
+                      <td className="text-cocoa">
+                        {category?.name}
+                        {category?.is_active === false && <span className="block text-xs font-medium text-danger">Category hidden</span>}
+                      </td>
                       <td className="text-right tabular-nums">
                         {formatPKR(p.base_price)}
                         {p.compare_at_price && <s className="block text-xs text-cocoa">{formatPKR(p.compare_at_price)}</s>}
@@ -143,7 +147,10 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<SP> }) {
                         {lowSizes > 0 && <span className="block text-xs text-[#b7791f]">{lowSizes} size{lowSizes === 1 ? "" : "s"} low</span>}
                       </td>
                       <td className="text-xs text-cocoa">{labels.join(" · ") || "—"}</td>
-                      <td><ProductVisibilityToggle id={p.id} active={p.is_active} name={p.name} /></td>
+                      <td>
+                        <ProductVisibilityToggle id={p.id} active={p.is_active} name={p.name} />
+                        {p.is_active && category?.is_active === false && <span className="mt-1 block whitespace-nowrap text-xs text-danger">Not in store</span>}
+                      </td>
                     </tr>
                   );
                 })}

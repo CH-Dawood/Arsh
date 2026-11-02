@@ -3,6 +3,7 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { removeUnusedFiles } from "@/lib/admin/storage";
 
 const categoryInput = z.object({
   id: z.uuid().optional(),
@@ -23,7 +24,10 @@ export async function saveCategory(input: z.input<typeof categoryInput>) {
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form.");
     const { id: existing, on_homepage, ...row } = parsed.data;
     let id = existing;
+    let oldImage: string | null = null;
     if (id) {
+      const { data: before } = await db.from("categories").select("image_path").eq("id", id).maybeSingle();
+      oldImage = before?.image_path ?? null;
       const { error, count } = await db.from("categories").update(row, { count: "exact" }).eq("id", id);
       if (error) return fail(dbMessage(error));
       if (!count) return fail(GONE);
@@ -53,6 +57,8 @@ export async function saveCategory(input: z.input<typeof categoryInput>) {
         if (error) return fail(dbMessage(error));
       }
     }
+    // A replaced image goes, unless something else still shows it.
+    if (oldImage !== row.image_path) await removeUnusedFiles(db, [oldImage]);
     expire();
     return { ok: true, message: existing ? "Category saved." : "Category added." };
   });
@@ -70,14 +76,7 @@ export async function deleteCategory(id: string, moveTo?: string) {
       return fail(dbMessage(error));
     }
     // Its uploaded image goes too, unless something else still shows it.
-    const path = row?.image_path;
-    if (path?.startsWith("categories/")) {
-      const [{ count: cats }, { count: tiles }] = await Promise.all([
-        db.from("categories").select("id", { count: "exact", head: true }).eq("image_path", path),
-        db.from("home_sections").select("id", { count: "exact", head: true }).eq("image_path", path),
-      ]);
-      if (!cats && !tiles) await db.storage.from("catalog").remove([path]);
-    }
+    await removeUnusedFiles(db, [row?.image_path]);
     expire();
     updateTag("hanger");
     return { ok: true, message: moved ? `Category deleted. ${moved} product${moved === 1 ? " was" : "s were"} moved.` : "Category deleted." };
@@ -95,11 +94,8 @@ export async function moveCategory(id: string, direction: "up" | "down") {
     // Re-number everything so equal sort values can't block a move.
     const order = all.map((c) => c.id);
     [order[i], order[j]] = [order[j], order[i]];
-    for (const [n, cid] of order.entries()) {
-      const { error: e, count } = await db.from("categories").update({ sort_order: (n + 1) * 10 }, { count: "exact" }).eq("id", cid);
-      if (e) return fail(dbMessage(e));
-      if (!count) return fail(GONE);
-    }
+    const { error: e } = await db.rpc("admin_set_order", { p_table: "categories", p_ids: order });
+    if (e) return fail(dbMessage(e));
     expire();
     return { ok: true, message: "Display order updated." };
   });

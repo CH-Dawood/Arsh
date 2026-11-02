@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/listing/page-header";
 import { SizeGuideContent } from "@/components/product/size-guide";
 import { RichBody } from "@/components/ui/rich-doc";
 import { getContentPage } from "@/lib/catalog";
-import { isPolicySlug, POLICY_PAGES } from "@/lib/policies";
+import { EDITABLE_PAGES, isEditableSlug, isPolicySlug } from "@/lib/policies";
 import { bodyText } from "@/lib/rich-doc";
 import { pageMetadata } from "@/lib/seo";
 
@@ -21,10 +21,10 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/[page]">): Promise<Metadata> {
   const { page } = await params;
   const content = PAGES.includes(page) ? await getContentPage(page) : null;
-  // Resolved before the page streams, so unknown pages get a real 404 status. Footer policy
-  // pages always exist (an unpublished one shows a short notice instead of a 404).
-  if (!content && !isPolicySlug(page)) notFound();
-  const title = content?.title ?? POLICY_PAGES.find((p) => p.slug === page)?.title ?? "";
+  // Resolved before the page streams, so unknown pages get a real 404 status. Footer pages
+  // always exist (an unpublished one shows a short notice instead of a 404).
+  if (!content && !isEditableSlug(page)) notFound();
+  const title = content?.title ?? EDITABLE_PAGES.find((p) => p.slug === page)?.title ?? "";
   const description = content ? bodyText(content.body).slice(0, 160) || `${title}.` : `${title}.`;
   return pageMetadata({ title, description, path: `/${page}` });
 }
@@ -40,8 +40,8 @@ export default function ContentPage({ params }: PageProps<"/[page]">) {
 async function Content({ params }: Pick<PageProps<"/[page]">, "params">) {
   const { page } = await params;
   const content = PAGES.includes(page) ? await getContentPage(page) : null;
-  if (!content && !isPolicySlug(page)) notFound();
-  const title = content?.title ?? POLICY_PAGES.find((p) => p.slug === page)?.title ?? "";
+  if (!content && !isEditableSlug(page)) notFound();
+  const title = content?.title ?? EDITABLE_PAGES.find((p) => p.slug === page)?.title ?? "";
   const hasBody = Boolean(content && bodyText(content.body));
 
   return (

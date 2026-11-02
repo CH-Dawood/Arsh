@@ -40,6 +40,7 @@ export const GONE = "That record no longer exists. Refresh the page.";
 const known: Record<string, string> = {
   INVALID_STATUS_TRANSITION: "That status change isn't allowed. Cancelled and returned orders are final, and delivered orders can only be marked returned.",
   NOT_FOUND: GONE,
+  STALE_ORDER: "This list changed since you opened the page. Refresh and try again.",
   FORBIDDEN: "You don't have permission to do that.",
   VARIANT_REQUIRED: "Add at least one size before saving.",
   INVALID_MODE: "Choose how to change the stock.",

@@ -46,7 +46,7 @@ export function PoliciesManager({ policies }: { policies: PolicyRow[] }) {
 
   const open = (p: PolicyRow) => {
     if (p.slug === slug) return;
-    if (dirty && !window.confirm("You have unsaved changes to this policy. Discard them?")) return;
+    if (dirty && !window.confirm("You have unsaved changes to this page. Discard them?")) return;
     setSlug(p.slug);
     setDraft(toDraft(p));
     setDirty(false);
@@ -81,7 +81,7 @@ export function PoliciesManager({ policies }: { policies: PolicyRow[] }) {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[17rem_minmax(0,1fr)]">
-      <Card title="Policies">
+      <Card title="Pages">
         <ul className="divide-y divide-hairline">
           {saved.map((p) => {
             const empty = !docText(parseDoc(p.body)).trim() && !p.body.trim();
@@ -122,7 +122,7 @@ export function PoliciesManager({ policies }: { policies: PolicyRow[] }) {
               <RichEditor key={`${slug}-${version}`} label={`${current.title} content`} value={draft.doc} onChange={(doc) => edit({ doc })} minHeight="26rem" />
               <p className="mt-1 text-xs text-cocoa/80">Use Heading and Subheading for sections. You can paste text from a document; formatting the website can&apos;t show is removed.</p>
             </div>
-            <Toggle checked={draft.is_published} onChange={(x) => edit({ is_published: x })} label="Published" description="When off, the footer link shows “This page is being updated” instead of the policy." />
+            <Toggle checked={draft.is_published} onChange={(x) => edit({ is_published: x })} label="Published" description="When off, the page shows “This page is being updated” instead of its content." />
             <p className="text-xs text-cocoa">Last updated {formatDateTime(current.updated_at)}</p>
           </div>
           <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t border-hairline bg-paper/95 px-5 py-3 backdrop-blur">
@@ -134,7 +134,7 @@ export function PoliciesManager({ policies }: { policies: PolicyRow[] }) {
         </Card>
       )}
 
-      <Sheet open={preview} onClose={() => setPreview(false)} side="right" label="Policy preview">
+      <Sheet open={preview} onClose={() => setPreview(false)} side="right" label="Page preview">
         {draft && (
           <div className="h-full overflow-y-auto bg-ivory p-6 pt-12 sm:p-10 sm:pt-14">
             <p className="label text-gold-deep">Preview{draft.is_published ? "" : " · draft, not on the website"}</p>

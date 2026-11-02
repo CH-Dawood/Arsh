@@ -399,6 +399,56 @@ const brandClear = await as('authenticated', admin, async (tx) => {
 })
 check('deleting a brand can clear the label instead', brandClear.n > 0 && brandClear.left > 0)
 
+// --- Checkout: hidden categories --------------------------------------------
+const hiddenCat = await as('authenticated', admin, async (tx) => {
+  const cat = (await tx.query(`insert into categories (name, slug) values ('Hide Cat','hide-cat') returning id`)).rows[0].id
+  const prod = (await tx.query(`insert into products (name, slug, category_id, base_price) values ('Hide Product','hide-product',$1,1000) returning id`, [cat])).rows[0].id
+  const m = (await tx.query(`select id from sizes where code='M'`)).rows[0].id
+  const variant = (await tx.query(`insert into product_variants (product_id, size_id, sku, stock) values ($1,$2,'HIDE-M',5) returning id`, [prod, m])).rows[0].id
+  return { cat, prod, variant }
+}, true)
+const hiddenItems = JSON.stringify([{ variant_id: hiddenCat.variant, quantity: 1 }])
+const hiddenCustomer = JSON.stringify({ full_name: 'Hide Test', phone: '03001112222', city: 'Lahore', address_line: 'Hide Street 12' })
+check('product in a visible category can be quoted', (await svc(`select quote_cart($1::jsonb) q`, [hiddenItems])).rows[0].q.subtotal === 1000)
+await db.query(`update categories set is_active=false where id=$1`, [hiddenCat.cat])
+check('quote excludes a product in a hidden category', (await svc(`select quote_cart($1::jsonb) q`, [hiddenItems])).rows[0].q.subtotal === 0)
+await fails('checkout refuses a product in a hidden category', () => svc(`select * from place_order($1::jsonb, $2::jsonb, 'cod')`, [hiddenItems, hiddenCustomer]), 'ITEM_UNAVAILABLE')
+check('refused checkout leaves stock alone', (await one(`select stock from product_variants where id=$1`, [hiddenCat.variant])).stock === 5)
+await db.query(`update categories set is_active=true where id=$1`, [hiddenCat.cat])
+await db.query(`update products set is_active=false where id=$1`, [hiddenCat.prod])
+await fails('checkout refuses a disabled product', () => svc(`select * from place_order($1::jsonb, $2::jsonb, 'cod')`, [hiddenItems, hiddenCustomer]), 'ITEM_UNAVAILABLE')
+await db.query(`update products set is_active=true where id=$1`, [hiddenCat.prod])
+const shownOrder = (await svc(`select * from place_order($1::jsonb, $2::jsonb, 'cod')`, [hiddenItems, hiddenCustomer])).rows[0]
+check('checkout works again once the category is shown', Boolean(shownOrder.order_id))
+
+// --- Delivered orders can only be returned -----------------------------------
+await asAdmin(`select * from admin_update_order_status($1, 'delivered')`, [shownOrder.order_id])
+for (const back of ['pending', 'confirmed', 'processing', 'shipped', 'cancelled']) {
+  await fails(`delivered order cannot move to ${back}`, () => as('authenticated', admin, (tx) =>
+    tx.query(`select * from admin_update_order_status($1, '${back}')`, [shownOrder.order_id])), 'INVALID_STATUS_TRANSITION')
+}
+check('delivered time survives a refused change', (await one(`select delivered_at from orders where id=$1`, [shownOrder.order_id])).delivered_at !== null)
+const stockBeforeReturn = (await one(`select stock from product_variants where id=$1`, [hiddenCat.variant])).stock
+await asAdmin(`select * from admin_update_order_status($1, 'returned')`, [shownOrder.order_id])
+check('delivered order can be returned, restoring stock', (await one(`select stock from product_variants where id=$1`, [hiddenCat.variant])).stock === stockBeforeReturn + 1)
+await fails('returned order is final', () => as('authenticated', admin, (tx) =>
+  tx.query(`select * from admin_update_order_status($1, 'pending')`, [shownOrder.order_id])), 'INVALID_STATUS_TRANSITION')
+
+// --- Reordering is all-or-nothing ---------------------------------------------
+const catOrder = async () => (await db.query(`select id from categories order by sort_order, name`)).rows.map((r) => r.id)
+const beforeOrder = await catOrder()
+const reversed = [...beforeOrder].reverse()
+await asAdmin(`select admin_set_order('categories', $1::uuid[])`, [reversed])
+check('reorder saves every position', (await catOrder()).join() === reversed.join())
+await fails('reorder refuses a list missing a row', () => asAdmin(`select admin_set_order('categories', $1::uuid[])`, [beforeOrder.slice(1)]), 'STALE_ORDER')
+await fails('reorder refuses an unknown id', () => asAdmin(`select admin_set_order('categories', $1::uuid[])`, [[...beforeOrder.slice(1), '00000000-0000-4000-8000-000000000000']]), 'STALE_ORDER')
+await fails('reorder refuses a repeated id', () => asAdmin(`select admin_set_order('categories', $1::uuid[])`, [[beforeOrder[0], ...beforeOrder.slice(0, -1)]]), 'STALE_ORDER')
+await fails('reorder refuses other tables', () => asAdmin(`select admin_set_order('orders', $1::uuid[])`, [beforeOrder]), 'INVALID_TABLE')
+check('a refused reorder changes nothing', (await catOrder()).join() === reversed.join())
+await fails('customer cannot reorder', () => as('authenticated', alice, (tx) => tx.query(`select admin_set_order('categories', $1::uuid[])`, [beforeOrder])), 'FORBIDDEN')
+await fails('anon cannot reorder', () => as('anon', null, (tx) => tx.query(`select admin_set_order('categories', $1::uuid[])`, [beforeOrder])), 'permission denied')
+await asAdmin(`select admin_set_order('categories', $1::uuid[])`, [beforeOrder])
+
 // --- Policies & FAQs ---------------------------------------------------------
 const richJson = JSON.stringify({ type: 'doc', content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Returns' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Within 7 days.' }] }] })
 check('admin saves a policy with rich content', (await as('authenticated', admin, (tx) =>

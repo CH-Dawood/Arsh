@@ -15,6 +15,7 @@ import { Toggle } from "./client";
 import { AdminButton, Card, EmptyState, FieldRow, TextArea, TextInput } from "./ui";
 
 export interface HangerProduct {
+  categoryHidden: boolean;
   id: string; name: string; slug: string; price: number; description: string; isActive: boolean; inStock: boolean;
   images: { path: string; url: string }[];
 }
@@ -54,6 +55,7 @@ export function HangerManager({ initial, catalog, automatic, storageBase }: { in
     if (!p) return "Product no longer exists";
     if (!it.is_active) return "Disabled";
     if (!p.isActive) return "Product is hidden in the store";
+    if (p.categoryHidden) return "Its category is hidden";
     if (!p.inStock) return "Sold out";
     if (!it.image_path && !p.images.length) return "No photo";
     return null;

@@ -3,8 +3,10 @@ import { cn } from "@/lib/format";
 
 const tabs = [
   { key: "general", href: "/admin/settings", label: "General" },
-  { key: "policies", href: "/admin/settings/policies", label: "Policies & Legal Pages" },
+  { key: "policies", href: "/admin/settings/policies", label: "Policies & Pages" },
   { key: "faqs", href: "/admin/settings/faqs", label: "FAQ Management" },
+  { key: "options", href: "/admin/settings/options", label: "Sizes & Colours" },
+  { key: "storage", href: "/admin/settings/storage", label: "Storage" },
 ] as const;
 
 /** Section tabs for Admin → Store Settings. */
