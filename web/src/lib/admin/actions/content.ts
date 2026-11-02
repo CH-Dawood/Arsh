@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 import { z } from "zod";
-import { adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
 import { isPolicySlug } from "@/lib/policies";
 import { cleanDoc, docText } from "@/lib/rich-doc";
 
@@ -66,8 +66,9 @@ export async function saveFaq(input: z.input<typeof faqInput>) {
     if (doc.tooLong) return fail("This answer is too long. Keep FAQ answers short and link to a policy page for details.");
 
     if (id) {
-      const { error } = await db.from("faq_items").update({ question, is_active, answer: doc.json }).eq("id", id);
+      const { error, count } = await db.from("faq_items").update({ question, is_active, answer: doc.json }, { count: "exact" }).eq("id", id);
       if (error) return fail(dbMessage(error));
+      if (!count) return fail(GONE);
     } else {
       const { data: last } = await db.from("faq_items").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
       const { error } = await db.from("faq_items").insert({ question, is_active, answer: doc.json, sort_order: (last?.sort_order ?? 0) + 10 });
@@ -81,8 +82,9 @@ export async function saveFaq(input: z.input<typeof faqInput>) {
 export async function setFaqActive(id: string, isActive: boolean) {
   return adminAction(async ({ db }) => {
     if (!z.uuid().safeParse(id).success) return fail("Unknown FAQ.");
-    const { error } = await db.from("faq_items").update({ is_active: isActive }).eq("id", id);
+    const { error, count } = await db.from("faq_items").update({ is_active: isActive }, { count: "exact" }).eq("id", id);
     if (error) return fail(dbMessage(error));
+    if (!count) return fail(GONE);
     expireFaqs();
     return { ok: true, message: isActive ? "FAQ shown on the website." : "FAQ hidden from the website." };
   });
@@ -104,8 +106,9 @@ export async function reorderFaqs(ids: string[]) {
   return adminAction(async ({ db }) => {
     if (!z.array(z.uuid()).max(500).safeParse(ids).success || new Set(ids).size !== ids.length) return fail("Couldn't read the new order.");
     for (const [i, id] of ids.entries()) {
-      const { error } = await db.from("faq_items").update({ sort_order: (i + 1) * 10 }).eq("id", id);
+      const { error, count } = await db.from("faq_items").update({ sort_order: (i + 1) * 10 }, { count: "exact" }).eq("id", id);
       if (error) return fail(dbMessage(error));
+      if (!count) return fail(GONE);
     }
     expireFaqs();
     return { ok: true, message: "FAQ order saved." };

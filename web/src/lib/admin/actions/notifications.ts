@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
 import { NOTIFICATION_EVENTS } from "@/lib/notification-templates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkConnection, processNotifications, toWhatsAppNumber, whatsappConfig } from "@/lib/whatsapp";
@@ -18,8 +18,9 @@ export async function saveNotificationSettings(input: z.input<typeof settingsInp
   return adminAction(async ({ db }) => {
     const parsed = settingsInput.safeParse(input);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the settings.");
-    const { error } = await db.from("notification_settings").update(parsed.data).eq("id", 1);
+    const { error, count } = await db.from("notification_settings").update(parsed.data, { count: "exact" }).eq("id", 1);
     if (error) return fail(dbMessage(error));
+    if (!count) return fail(GONE);
     return {
       ok: true,
       message: parsed.data.enabled && !whatsappConfig.configured

@@ -41,7 +41,10 @@ export default function AdminOverview() {
 
 async function Overview() {
   const { supabase } = await requireAdmin();
-  const { data, error } = await supabase.rpc("admin_dashboard_stats");
+  const [{ data, error }, { count: newMessages }] = await Promise.all([
+    supabase.rpc("admin_dashboard_stats"),
+    supabase.from("contact_messages").select("id", { count: "exact", head: true }).eq("is_handled", false),
+  ]);
   if (error || !data) return <EmptyState title="Couldn't load the dashboard">Check your connection and refresh the page.</EmptyState>;
   const s = data as unknown as Stats;
   const count = (st: OrderStatus) => s.status_counts[st] ?? 0;
@@ -51,6 +54,12 @@ async function Overview() {
     <>
       <LiveRefresh table="orders" />
       <AdminPageHeader title="Overview" description="Live figures from your store. Revenue counts only paid orders; cash-on-delivery orders count once you mark them paid." />
+
+      {Boolean(newMessages) && (
+        <Link href="/admin/messages" className="mb-3 block border border-warning/40 bg-warning/5 px-5 py-3 text-sm hover:border-warning">
+          You have {newMessages} new customer message{newMessages === 1 ? "" : "s"}. <span className="underline underline-offset-4">Read {newMessages === 1 ? "it" : "them"}</span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Today's orders" value={s.today_orders} href="/admin/orders" />

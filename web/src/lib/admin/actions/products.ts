@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 import { z } from "zod";
-import { adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
 import { imageUrl } from "@/lib/catalog/supabase-source";
 
 const slug = z.string().trim().min(2).max(120).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters, numbers and dashes for the URL name.");
@@ -80,8 +80,9 @@ export async function saveProduct(input: ProductInput) {
 export async function setProductActive(id: string, active: boolean) {
   return adminAction(async ({ db }) => {
     if (!uuid.safeParse(id).success) return fail("Unknown product.");
-    const { error } = await db.from("products").update({ is_active: active }).eq("id", id);
+    const { error, count } = await db.from("products").update({ is_active: active }, { count: "exact" }).eq("id", id);
     if (error) return fail(dbMessage(error));
+    if (!count) return fail(GONE);
     updateTag("products");
     updateTag("hanger");
     return { ok: true, message: active ? "Product is now visible in the store." : "Product hidden from the store." };

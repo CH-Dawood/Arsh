@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 import { z } from "zod";
-import { adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
 
 const brandInput = z.object({
   id: z.uuid().optional(),
@@ -22,8 +22,9 @@ export async function saveBrand(input: z.input<typeof brandInput>) {
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form.");
     const { id, ...row } = parsed.data;
     if (id) {
-      const { error } = await db.from("brands").update(row).eq("id", id);
+      const { error, count } = await db.from("brands").update(row, { count: "exact" }).eq("id", id);
       if (error) return fail(dbMessage(error));
+      if (!count) return fail(GONE);
     } else {
       const { data: last } = await db.from("brands").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
       const { error } = await db.from("brands").insert({ ...row, sort_order: (last?.sort_order ?? 0) + 10 });
@@ -37,8 +38,9 @@ export async function saveBrand(input: z.input<typeof brandInput>) {
 export async function setBrandActive(id: string, isActive: boolean) {
   return adminAction(async ({ db }) => {
     if (!z.uuid().safeParse(id).success) return fail("Unknown brand.");
-    const { error } = await db.from("brands").update({ is_active: isActive }).eq("id", id);
+    const { error, count } = await db.from("brands").update({ is_active: isActive }, { count: "exact" }).eq("id", id);
     if (error) return fail(dbMessage(error));
+    if (!count) return fail(GONE);
     expire();
     return { ok: true, message: isActive ? "Brand enabled." : "Brand disabled. It stays on its products in the admin but is hidden in the store." };
   });

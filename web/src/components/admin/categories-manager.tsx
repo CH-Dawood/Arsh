@@ -27,8 +27,9 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
   const [toDelete, setToDelete] = useState<CategoryRow | null>(null);
   const [moveTo, setMoveTo] = useState("");
   const [uploading, setUploading] = useState(false);
+  const hiddenProducts = categories.find((c) => c.id === draft?.id)?.product_count ?? 0;
 
-  const run = (fn: () => Promise<{ ok: boolean; message: string }>, after?: () => void) =>
+  const run =(fn: () => Promise<{ ok: boolean; message: string }>, after?: () => void) =>
     start(async () => {
       if (toastResult(await fn())) {
         after?.();
@@ -127,6 +128,11 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
                 </div>
               </div>
               <Toggle checked={draft.is_active} onChange={(x) => setDraft({ ...draft, is_active: x })} label="Show in store" description="Hidden categories disappear from menus and filters." />
+              {!draft.is_active && hiddenProducts > 0 && (
+                <p role="alert" className="border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-espresso">
+                  {hiddenProducts} product{hiddenProducts === 1 ? "" : "s"} in this category will also disappear from the store until you show it again or move {hiddenProducts === 1 ? "it" : "them"} to another category.
+                </p>
+              )}
               <Toggle checked={draft.on_homepage} onChange={(x) => setDraft({ ...draft, on_homepage: x })} label="Show on the homepage" description="Adds a tile to “Shop by Category”, using this category's image." />
             </div>
             <div className="mt-auto flex justify-end gap-2 pt-8">

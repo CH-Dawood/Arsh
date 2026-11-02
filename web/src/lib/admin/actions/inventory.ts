@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 import { z } from "zod";
-import { adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
 
 const input = z.object({
   variantId: z.uuid(),
@@ -21,6 +21,8 @@ export async function adjustStock(raw: z.input<typeof input>) {
 
     const { data, error } = await db.rpc("admin_adjust_stock", { p_variant_id: variantId, p_mode: mode, p_quantity: quantity, p_note: note || undefined });
     if (error) return fail(dbMessage(error));
+    // No stock comes back when the size no longer exists.
+    if (data === null) return fail(GONE);
     updateTag("products");
     return { ok: true, message: `Stock is now ${data}.`, data: { stock: data as number } };
   });

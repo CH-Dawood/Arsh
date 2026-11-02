@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 import { z } from "zod";
-import { adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
 
 const categoryInput = z.object({
   id: z.uuid().optional(),
@@ -24,8 +24,9 @@ export async function saveCategory(input: z.input<typeof categoryInput>) {
     const { id: existing, on_homepage, ...row } = parsed.data;
     let id = existing;
     if (id) {
-      const { error } = await db.from("categories").update(row).eq("id", id);
+      const { error, count } = await db.from("categories").update(row, { count: "exact" }).eq("id", id);
       if (error) return fail(dbMessage(error));
+      if (!count) return fail(GONE);
     } else {
       const { data: last } = await db.from("categories").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
       const { data, error } = await db.from("categories").insert({ ...row, sort_order: (last?.sort_order ?? 0) + 10 }).select("id").single();
@@ -95,8 +96,9 @@ export async function moveCategory(id: string, direction: "up" | "down") {
     const order = all.map((c) => c.id);
     [order[i], order[j]] = [order[j], order[i]];
     for (const [n, cid] of order.entries()) {
-      const { error: e } = await db.from("categories").update({ sort_order: (n + 1) * 10 }).eq("id", cid);
+      const { error: e, count } = await db.from("categories").update({ sort_order: (n + 1) * 10 }, { count: "exact" }).eq("id", cid);
       if (e) return fail(dbMessage(e));
+      if (!count) return fail(GONE);
     }
     expire();
     return { ok: true, message: "Display order updated." };

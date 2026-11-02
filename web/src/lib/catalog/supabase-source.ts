@@ -13,8 +13,9 @@ const PRODUCT_FIELDS = `id, slug, name, short_description, description, fabric, 
   images:product_images(storage_path, alt, sort_order),
   variants:product_variants(id, sku, stock, price_override, is_active, size:sizes(code, label, sort_order), color:colors(name))`;
 
-const select = ({ categoryInner = false, brandInner = false } = {}) =>
-  `${PRODUCT_FIELDS}, category:categories${categoryInner ? "!inner" : ""}(name, slug), brand:brands${brandInner ? "!inner" : ""}(name, slug, is_featured)`;
+// Inner join on category: RLS hides a hidden category from visitors, so its products leave the store with it.
+const select = ({ brandInner = false } = {}) =>
+  `${PRODUCT_FIELDS}, category:categories!inner(name, slug), brand:brands${brandInner ? "!inner" : ""}(name, slug, is_featured)`;
 
 type ProductRow = {
   id: string; slug: string; name: string; short_description: string | null; description: string | null;
@@ -115,7 +116,7 @@ async function productsQuery({ collection, category, brand, size, sort = "newest
   const run = async (p: number) => {
     let q = db()
       .from("products")
-      .select(select({ categoryInner: Boolean(categorySlug), brandInner: Boolean(brand) || col?.kind === "brands" }), { count: "exact" })
+      .select(select({ brandInner: Boolean(brand) || col?.kind === "brands" }), { count: "exact" })
       .eq("is_active", true);
     if (col?.kind === "new_arrivals") q = q.eq("is_new_arrival", true);
     if (col?.kind === "luxury") q = q.eq("is_luxury", true);
@@ -226,7 +227,7 @@ export const supabaseSource: CatalogSource = {
   },
 
   async productSlugs() {
-    const { data, error } = await db().from("products").select("slug").order("created_at", { ascending: false }).limit(1000);
+    const { data, error } = await db().from("products").select("slug, category:categories!inner(slug)").order("created_at", { ascending: false }).limit(1000);
     fail(error);
     return (data ?? []).map((p) => p.slug);
   },

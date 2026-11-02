@@ -2,7 +2,7 @@
 
 import { after } from "next/server";
 import { z } from "zod";
-import { adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
 import { ORDER_STATUSES, PAYMENT_STATUSES, statusLabel } from "@/lib/orders";
 import { processNotifications } from "@/lib/whatsapp";
 
@@ -22,11 +22,13 @@ export async function updateOrderStatus(input: z.input<typeof statusInput>) {
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form.");
     const { orderId, status, note, courier, trackingNumber, trackingUrl, markPaid } = parsed.data;
 
-    const { error } = await db.rpc("admin_update_order_status", {
+    const { data: updated, error } = await db.rpc("admin_update_order_status", {
       p_order_id: orderId, p_status: status, p_note: note || undefined,
       p_courier: courier || undefined, p_tracking_number: trackingNumber || undefined, p_tracking_url: trackingUrl || undefined,
     });
     if (error) return fail(dbMessage(error));
+    // An empty row comes back when the order no longer exists.
+    if (!updated?.id) return fail(GONE);
 
     if (markPaid) {
       const { error: payError } = await db.rpc("admin_set_payment_status", { p_order_id: orderId, p_status: "paid", p_note: "Cash collected on delivery" });

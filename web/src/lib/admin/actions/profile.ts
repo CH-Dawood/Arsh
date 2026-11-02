@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { adminAction, dbMessage, fail } from "@/lib/admin/server";
+import { GONE, adminAction, dbMessage, fail } from "@/lib/admin/server";
 
 const profileInput = z.object({
   full_name: z.string().trim().min(2, "Enter your name.").max(120),
@@ -14,8 +14,9 @@ export async function saveAdminProfile(input: z.input<typeof profileInput>) {
   return adminAction(async ({ db, userId }) => {
     const parsed = profileInput.safeParse(input);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form.");
-    const { error } = await db.from("profiles").update(parsed.data).eq("id", userId);
+    const { error, count } = await db.from("profiles").update(parsed.data, { count: "exact" }).eq("id", userId);
     if (error) return fail(dbMessage(error));
+    if (!count) return fail(GONE);
     return { ok: true, message: "Profile updated." };
   });
 }
